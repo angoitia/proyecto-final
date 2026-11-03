@@ -1,5 +1,3 @@
-https://github.com/angoitia/proyecto-final
-
 # Predicción de la progresión de la diabetes — MLOps de extremo a extremo
 
 [Repositorio del proyecto](https://github.com/angoitia/proyecto-final)
