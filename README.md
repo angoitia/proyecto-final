@@ -1,4 +1,8 @@
+https://github.com/angoitia/proyecto-final
+
 # Predicción de la progresión de la diabetes — MLOps de extremo a extremo
+
+[Repositorio del proyecto](https://github.com/angoitia/proyecto-final)
 
 Un proyecto MLOps pequeño pero completo para un problema de regresión. Parte de un
 notebook exploratorio, traslada la lógica a módulos reutilizables de datos y
