@@ -1,8 +1,9 @@
-"""Data cleaning stage.
+"""Etapa de limpieza de datos.
 
-The scikit-learn diabetes dataset is already clean, but the production flow
-still applies a deterministic cleaning policy so that the same code can handle
-new data with missing values, duplicates or invalid labels.
+El dataset de diabetes de scikit-learn ya está limpio, pero el flujo de
+producción sigue aplicando una política de limpieza determinista para que el
+mismo código pueda manejar datos nuevos con valores faltantes, duplicados o
+etiquetas no válidas.
 """
 
 from __future__ import annotations
@@ -24,14 +25,16 @@ def clean_data(
     feature_columns: tuple[str, ...] = FEATURE_COLUMNS,
     target_column: str = TARGET_COLUMN,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Apply the project's basic cleaning policy and return a report.
+    """Aplica la política básica de limpieza del proyecto y devuelve un informe.
 
-    Policy:
-    - Keep only contract columns and force numeric dtypes.
-    - Treat ``inf`` as missing.
-    - Drop rows without a usable (finite, strictly positive) target.
-    - Drop exact duplicate rows.
-    - Impute missing feature values with the column median.
+    Política:
+    - Mantener solo las columnas del contrato y forzar tipos numéricos.
+    - Tratar ``inf`` como un valor faltante.
+    - Eliminar las filas sin un objetivo utilizable (finito y estrictamente
+      positivo).
+    - Eliminar las filas duplicadas exactas.
+    - Imputar los valores faltantes de las características con la mediana de
+      la columna.
     """
     required_columns = list(feature_columns) + [target_column]
     missing_columns = [column for column in required_columns if column not in dataframe.columns]

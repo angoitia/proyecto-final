@@ -1,10 +1,10 @@
-"""Pipeline orchestration.
+"""Orquestación del pipeline.
 
-Run every stage with::
+Ejecuta cada etapa con::
 
     python -m mlops.pipeline
 
-or a subset (always executed in the canonical order)::
+o una subetapa (siempre en el orden canónico)::
 
     python -m mlops.pipeline --stages extract validate clean split
     python -m mlops.pipeline --stages train register
@@ -125,7 +125,7 @@ def run_register(settings: Settings) -> dict[str, Any]:
 
 
 def run_pipeline(stages: Iterable[str] | None = None, settings: Settings | None = None) -> dict[str, Any]:
-    """Execute selected stages in canonical order."""
+    """Ejecuta las etapas seleccionadas en orden canónico."""
     settings = settings or get_settings()
     settings.ensure_directories()
 
@@ -155,17 +155,17 @@ def run_pipeline(stages: Iterable[str] | None = None, settings: Settings | None 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the diabetes MLOps pipeline.")
+    parser = argparse.ArgumentParser(description="Ejecutar el pipeline MLOps de diabetes.")
     parser.add_argument(
         "--stages",
         nargs="+",
         choices=[*STAGES, "all"],
-        help="Subset of stages to run (default: all stages in canonical order).",
+        help="Subconjunto de etapas a ejecutar (predeterminado: todas las etapas en orden canónico).",
     )
     parser.add_argument(
         "--list-stages",
         action="store_true",
-        help="Print the canonical stage list and exit.",
+        help="Imprime la lista canónica de etapas y termina.",
     )
     args = parser.parse_args(argv)
 

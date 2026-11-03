@@ -1,4 +1,4 @@
-"""Unit tests for extraction, validation, cleaning and splitting."""
+"""Pruebas unitarias de extracción, validación, limpieza y división."""
 
 from __future__ import annotations
 

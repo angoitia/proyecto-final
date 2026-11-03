@@ -1,8 +1,9 @@
-"""Data validation stage.
+"""Etapa de validación de datos.
 
-Checks the raw dataset against the contract expected by training and serving.
-Failures raise :class:`DataValidationError`, which makes the pipeline stop
-before a bad dataset reaches the model registry.
+Comprueba que el dataset bruto cumpla el contrato esperado por el entrenamiento
+y el servicio de predicción. Cuando se detectan fallos se levanta
+:class:`DataValidationError`, lo que hace que el pipeline se detenga antes de que
+un dataset incorrecto llegue al registro de modelos.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataValidationError(ValueError):
-    """Raised when the dataset violates the required schema."""
+    """Se levanta cuando el dataset viola el esquema requerido."""
 
     def __init__(self, errors: list[str]) -> None:
         self.errors = errors
@@ -33,11 +34,12 @@ def validate_data(
     feature_columns: tuple[str, ...] = FEATURE_COLUMNS,
     target_column: str = TARGET_COLUMN,
 ) -> dict[str, Any]:
-    """Validate schema, dtypes and target integrity.
+    """Valida el esquema, los tipos de datos y la integridad del objetivo.
 
-    Missing feature values are reported as warnings because the cleaning stage
-    owns imputation. Missing/non-finite targets are fatal: a row without a label
-    cannot be used for supervised learning.
+    Los valores faltantes de las características se reportan como avisos porque
+    la etapa de limpieza se encarga de la imputación. Los objetivos faltantes o
+    no finitos son fatales: una fila sin etiqueta no puede utilizarse para el
+    aprendizaje supervisado.
     """
     errors: list[str] = []
     warnings: list[str] = []

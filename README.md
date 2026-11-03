@@ -1,90 +1,90 @@
-# Diabetes Progression Prediction — End-to-End MLOps
+# Predicción de la progresión de la diabetes — MLOps de extremo a extremo
 
-A small but complete MLOps project for a regression problem. It starts from an
-exploratory notebook, moves the logic into reusable data/training modules, tracks
-experiments and registers models with **MLflow**, promotes a **champion** behind
-a quality gate, serves it with **FastAPI**, and automates the whole flow with
-**GitHub Actions**.
+Un proyecto MLOps pequeño pero completo para un problema de regresión. Parte de un
+notebook exploratorio, traslada la lógica a módulos reutilizables de datos y
+entrenamiento, hace seguimiento de experimentos y registra modelos con **MLflow**,
+promueve un **modelo campeón** detrás de un criterio de calidad, lo sirve con
+**FastAPI** y automatiza todo el flujo con **GitHub Actions**.
 
-The model predicts diabetes disease progression one year after baseline from ten
-numerical patient features.
+El modelo predice la progresión de la enfermedad de diabetes un año después de la
+línea base a partir de diez características numéricas de pacientes.
 
 ---
 
-## 1. Project goal
+## 1. Objetivo del proyecto
 
-The repository demonstrates the core MLOps lifecycle without pretending to be a
-full production platform:
+El repositorio demuestra el ciclo de vida MLOps fundamental sin pretender ser una
+plataforma de producción completa:
 
-1. Extract raw data and persist it.
-2. Validate the schema and target.
-3. Clean the data and create a deterministic train/test split.
-4. Train several regression candidates.
-5. Log parameters, metrics and artifacts to MLflow.
-6. Register the best candidate in the MLflow Model Registry.
-7. Promote it to the `champion` alias only when it passes a quality gate.
-8. Serve the champion through `/health`, `/model-info` and `/predict`.
-9. Handle valid requests, invalid payloads, unavailable models and inference errors.
-10. Run the pipeline and tests automatically on every push.
+1. Extraer los datos sin procesar y persistirlos.
+2. Validar el esquema y la variable objetivo.
+3. Limpiar los datos y crear una división determinista de train/test.
+4. Entrenar varios candidatos de regresión.
+5. Registrar parámetros, métricas y artefactos en MLflow.
+6. Registrar el mejor candidato en el registro de modelos de MLflow.
+7. Promoverlo al alias `champion` solo cuando supere un criterio de calidad.
+8. Servir el modelo campeón a través de `/health`, `/model-info` y `/predict`.
+9. Gestionar solicitudes válidas, cargas útiles no válidas, modelos no disponibles y errores de inferencia.
+10. Ejecutar el pipeline y las pruebas automáticamente en cada push.
 
-The exploratory notebook is
+El notebook exploratorio es
 [`notebooks/01_exploratory_analysis.ipynb`](notebooks/01_exploratory_analysis.ipynb).
-The original assignment notebook is kept untouched at the repository root.
+El notebook original de la tarea se conserva intacto en la raíz del repositorio.
 
 ---
 
-## 2. Dataset
+## 2. Conjunto de datos
 
-The project uses **scikit-learn's Diabetes dataset**:
+El proyecto utiliza el **conjunto de datos Diabetes de scikit-learn**:
 
-| Property | Value |
+| Propiedad | Valor |
 |---|---|
-| Rows | 442 |
-| Features | 10 numeric features: `age`, `sex`, `bmi`, `bp`, `s1`–`s6` |
-| Target | `target` — quantitative disease progression |
-| Target range | 25–346 |
-| Source | `sklearn.datasets.load_diabetes` |
+| Filas | 442 |
+| Características | 10 características numéricas: `age`, `sex`, `bmi`, `bp`, `s1`–`s6` |
+| Variable objetivo | `target` — progresión cuantitativa de la enfermedad |
+| Rango de la variable objetivo | 25–346 |
+| Origen | `sklearn.datasets.load_diabetes` |
 
-The features are already **mean-centered and scaled** by scikit-learn. The API
-therefore expects values in the same standardized scale used by the model, not
-raw ages or BMI values.
+scikit-learn ya **centra en la media y escala** las características. Por lo tanto, la
+API espera valores en la misma escala estandarizada que utiliza el modelo, no edades
+ni valores de IMC sin procesar.
 
-The extraction stage writes the dataset to `data/raw/diabetes.csv`. This file is
-generated at runtime and is intentionally ignored by git; the same is true for
-the processed files.
+La etapa de extracción escribe el conjunto de datos en `data/raw/diabetes.csv`. Este
+archivo se genera en tiempo de ejecución y git lo ignora intencionadamente; lo mismo
+ocurre con los archivos procesados.
 
 ---
 
-## 3. Repository structure
+## 3. Estructura del repositorio
 
 ```text
 .
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                  # push/PR pipeline + tests
+│       └── ci.yml                  # pipeline de push/PR + pruebas
 ├── artifacts/
-│   └── reports/                    # generated JSON audit reports (gitignored)
+│   └── reports/                    # informes de auditoría JSON generados (ignorados por git)
 ├── data/
-│   ├── raw/                        # raw diabetes.csv (generated)
-│   └── processed/                  # cleaned data + train/test splits (generated)
+│   ├── raw/                        # diabetes.csv sin procesar (generado)
+│   └── processed/                  # datos limpios + divisiones train/test (generadas)
 ├── mlops/
 │   ├── api/
-│   │   ├── main.py                 # FastAPI app and endpoints
-│   │   ├── model_loader.py         # loads models:/...@champion from MLflow
-│   │   └── schemas.py              # Pydantic request/response schemas
+│   │   ├── main.py                 # aplicación FastAPI y endpoints
+│   │   ├── model_loader.py         # carga models:/...@champion desde MLflow
+│   │   └── schemas.py              # esquemas de solicitud/respuesta de Pydantic
 │   ├── data/
-│   │   ├── extract.py              # data extraction
-│   │   ├── validate.py             # schema/quality validation
-│   │   ├── clean.py                # missing values, duplicates, invalid labels
-│   │   └── split.py                # deterministic train/test split
+│   │   ├── extract.py              # extracción de datos
+│   │   ├── validate.py             # validación de esquema/calidad
+│   │   ├── clean.py                # valores faltantes, duplicados, etiquetas no válidas
+│   │   └── split.py                # división determinista train/test
 │   ├── training/
-│   │   ├── models.py               # candidate model definitions
-│   │   ├── train.py                # training + MLflow tracking
-│   │   ├── registry.py             # registration + champion selection
-│   │   └── mlflow_utils.py         # tracking/registry configuration
-│   ├── config.py                   # paths, model names, thresholds, env vars
-│   ├── pipeline.py                 # orchestration CLI
-│   └── utils.py                    # logging, JSON and git helpers
+│   │   ├── models.py               # definiciones de modelos candidatos
+│   │   ├── train.py                # entrenamiento + seguimiento en MLflow
+│   │   ├── registry.py             # registro + selección del modelo campeón
+│   │   └── mlflow_utils.py         # configuración de seguimiento/registro
+│   ├── config.py                   # rutas, nombres de modelos, umbrales, variables de entorno
+│   ├── pipeline.py                 # CLI de orquestación
+│   └── utils.py                    # utilidades de logging, JSON y git
 ├── notebooks/
 │   └── 01_exploratory_analysis.ipynb
 ├── tests/
@@ -98,30 +98,30 @@ the processed files.
 └── README.md
 ```
 
-Responsibilities are separated by layer:
+Las responsabilidades se separan por capas:
 
-- **Data logic** → `mlops/data/`
-- **Training logic** → `mlops/training/train.py` and `models.py`
-- **Registry/evaluation logic** → `mlops/training/registry.py`
-- **API serving logic** → `mlops/api/`
-- **Pipeline orchestration** → `mlops/pipeline.py`
-- **CI/CD configuration** → `.github/workflows/ci.yml`
+- **Lógica de datos** → `mlops/data/`
+- **Lógica de entrenamiento** → `mlops/training/train.py` y `models.py`
+- **Lógica de registro/evaluación** → `mlops/training/registry.py`
+- **Lógica de servicio de la API** → `mlops/api/`
+- **Orquestación del pipeline** → `mlops/pipeline.py`
+- **Configuración de CI/CD** → `.github/workflows/ci.yml`
 
 ---
 
-## 4. Pipeline overview
+## 4. Descripción general del pipeline
 
 ```text
 extract → validate → clean → split → train → register
 ```
 
-Run every stage:
+Ejecuta todas las etapas:
 
 ```bash
 python -m mlops.pipeline
 ```
 
-Run only a subset (stages always execute in the canonical order):
+Ejecuta solo un subconjunto (las etapas siempre se ejecutan en el orden canónico):
 
 ```bash
 python -m mlops.pipeline --stages extract validate clean split
@@ -129,174 +129,179 @@ python -m mlops.pipeline --stages train register
 python -m mlops.pipeline --list-stages
 ```
 
-### 4.1 Data extraction
+### 4.1 Extracción de datos
 
-`mlops/data/extract.py` loads `load_diabetes(as_frame=True)` and writes
-`data/raw/diabetes.csv` together with `artifacts/reports/extraction_report.json`.
-In a real project this module would be replaced by a database/object-storage/API
-reader, while the rest of the pipeline would consume the same raw contract.
+`mlops/data/extract.py` carga `load_diabetes(as_frame=True)` y escribe
+`data/raw/diabetes.csv` junto con `artifacts/reports/extraction_report.json`.
+En un proyecto real, este módulo se sustituiría por un lector de base de
+datos/almacenamiento de objetos/API, mientras que el resto del pipeline consumiría
+el mismo contrato de datos sin procesar.
 
-### 4.2 Data validation
+### 4.2 Validación de datos
 
-`mlops/data/validate.py` checks:
+`mlops/data/validate.py` comprueba:
 
-- required feature columns and the target column exist;
-- there are no duplicate column names;
-- the dataset is not empty;
-- feature and target dtypes are numeric;
-- the target has no missing or infinite values;
-- no feature is entirely missing.
+- que existan las columnas de características requeridas y la columna de la variable objetivo;
+- que no haya nombres de columnas duplicados;
+- que el conjunto de datos no esté vacío;
+- que los dtypes de las características y de la variable objetivo sean numéricos;
+- que la variable objetivo no tenga valores faltantes ni infinitos;
+- que ninguna característica esté completamente vacía.
 
-Missing feature values and non-positive targets are reported as warnings because
-the cleaning stage owns their treatment. Fatal problems raise
-`DataValidationError`, write a failed report and stop the pipeline.
+Los valores de características faltantes y las variables objetivo no positivas se
+notifican como advertencias porque la etapa de limpieza es responsable de tratarlos.
+Los problemas fatales lanzan `DataValidationError`, escriben un informe de fallo y
+detienen el pipeline.
 
-### 4.3 Data cleaning
+### 4.3 Limpieza de datos
 
-`mlops/data/clean.py` applies a deterministic policy:
+`mlops/data/clean.py` aplica una política determinista:
 
-1. keep only contract columns;
-2. coerce numeric types;
-3. treat `inf`/`-inf` as missing;
-4. drop rows with unusable targets (missing, non-finite or `<= 0`);
-5. remove exact duplicate rows;
-6. impute missing feature values with the column median;
-7. cast features and target to `float`.
+1. conservar solo las columnas del contrato;
+2. convertir los tipos a numéricos;
+3. tratar `inf`/`-inf` como valores faltantes;
+4. eliminar las filas con variables objetivo inutilizables (faltantes, no finitas o `<= 0`);
+5. eliminar las filas duplicadas exactas;
+6. imputar los valores de características faltantes con la mediana de la columna;
+7. convertir las características y la variable objetivo a `float`.
 
-The scikit-learn dataset is already clean, so the first run reports zero changes.
-The logic is exercised by unit tests with injected missing values, duplicates and
-invalid targets.
+El conjunto de datos de scikit-learn ya está limpio, por lo que la primera ejecución
+informa de cero cambios. La lógica se ejercita mediante pruebas unitarias con
+valores faltantes, duplicados y variables objetivo no válidas inyectados.
 
-### 4.4 Train/test split
+### 4.4 División train/test
 
-`mlops/data/split.py` uses an 80/20 split with `random_state=42`:
+`mlops/data/split.py` utiliza una división 80/20 con `random_state=42`:
 
-- 353 training rows;
-- 89 test rows.
+- 353 filas de entrenamiento;
+- 89 filas de test.
 
-The split is saved to `data/processed/train.csv` and `data/processed/test.csv`.
-Reports are stored under `artifacts/reports/`.
+La división se guarda en `data/processed/train.csv` y `data/processed/test.csv`.
+Los informes se almacenan en `artifacts/reports/`.
 
 ---
 
-## 5. Training and MLflow
+## 5. Entrenamiento y MLflow
 
-### 5.1 Candidates
+### 5.1 Candidatos
 
-The production candidates mirror the notebook baseline and are wrapped in
-scikit-learn `Pipeline` objects (scaler + estimator), so the exact preprocessing
-used at training time is part of the logged model:
+Los candidatos de producción reproducen la línea base del notebook y se envuelven en
+objetos `Pipeline` de scikit-learn (escalador + estimador), de modo que el
+preprocesamiento exacto utilizado durante el entrenamiento forma parte del modelo
+que se registra:
 
-| Candidate | Definition |
+| Candidato | Definición |
 |---|---|
 | `linear_regression` | `StandardScaler` + `LinearRegression` |
 | `random_forest` | `StandardScaler` + `RandomForestRegressor(n_estimators=100, random_state=42)` |
 | `gradient_boosting` | `StandardScaler` + `GradientBoostingRegressor(random_state=42)` |
 
-### 5.2 Metrics
+### 5.2 Métricas
 
-For every candidate, the training stage logs:
+Para cada candidato, la etapa de entrenamiento registra:
 
-- train and test **RMSE**, **MAE** and **R²**;
-- candidate name, hyperparameters, row counts and feature count;
-- the serialized model with an MLflow signature and input example;
+- **RMSE**, **MAE** y **R²** de entrenamiento y de test;
+- nombre del candidato, hiperparámetros, recuentos de filas y número de características;
+- el modelo serializado con una firma de MLflow y un ejemplo de entrada;
 - `metrics.json`;
-- `feature_importance.csv` (tree candidates) or coefficients (linear candidate);
-- the git commit SHA when available.
+- `feature_importance.csv` (candidatos de árboles) o coeficientes (candidato lineal);
+- el SHA del commit de git cuando esté disponible.
 
-Current result on the deterministic test split:
+Resultado actual en la división de test determinista:
 
-| Model | Test RMSE | Test MAE | Test R² |
+| Modelo | RMSE en test | MAE en test | R² en test |
 |---|---:|---:|---:|
-| **GradientBoosting (champion)** | **53.73** | **44.52** | **0.455** |
+| **GradientBoosting (campeón)** | **53.73** | **44.52** | **0.455** |
 | LinearRegression | 53.85 | 42.79 | 0.453 |
 | RandomForest | 54.40 | 44.17 | 0.441 |
 
-The notebook's baseline comparison closely matches these values; the notebook
-also explores interaction features, which are not used in the serving contract.
+La comparación con la línea base del notebook coincide estrechamente con estos
+valores; el notebook también explora características de interacción, que no se
+utilizan en el contrato de servicio.
 
-### 5.3 MLflow experiment
+### 5.3 Experimento de MLflow
 
-By default the project uses a local SQLite backend:
+De forma predeterminada, el proyecto utiliza un backend SQLite local:
 
-- tracking/registry database: `mlflow.db`;
-- artifacts: `mlruns/`;
-- experiment: `diabetes-progression`;
-- runs: `train_<candidate>` and `champion_selection`.
+- base de datos de seguimiento/registro: `mlflow.db`;
+- artefactos: `mlruns/`;
+- experimento: `diabetes-progression`;
+- ejecuciones: `train_<candidate>` y `champion_selection`.
 
-Open the UI from the repository root:
+Abre la interfaz de usuario desde la raíz del repositorio:
 
 ```bash
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 ```
 
-Then open <http://127.0.0.1:5000>. The **Models** tab shows the registered model,
-its versions, tags, aliases and the `champion` alias.
+Luego abre <http://127.0.0.1:5000>. La pestaña **Models** muestra el modelo
+registrado, sus versiones, etiquetas, alias y el alias `champion`.
 
-A remote tracking server can be used via `MLFLOW_TRACKING_URI`; in that case the
-SQLite-specific artifact location handling is skipped and the server's artifact
-root is used.
+Se puede utilizar un servidor de seguimiento remoto mediante `MLFLOW_TRACKING_URI`;
+en ese caso se omite el tratamiento específico de SQLite para la ubicación de los
+artefactos y se utiliza la raíz de artefactos del servidor.
 
 ---
 
-## 6. Champion model and quality gate
+## 6. Modelo campeón y criterio de calidad
 
-The registered model name is `diabetes-progression-model` (configurable). The
-alias is `champion`.
+El nombre del modelo registrado es `diabetes-progression-model` (configurable). El
+alias es `champion`.
 
-A candidate is promoted only when **both** conditions hold:
+Un candidato se promueve solo cuando se cumplen **ambas** condiciones:
 
-1. **Quality gate:** test RMSE ≤ `RMSE_THRESHOLD` (default **60.0**).
-2. **Champion comparison:** there is no current champion, or the candidate's RMSE
-   is better than or equal to the current champion's RMSE.
+1. **Criterio de calidad:** RMSE de test ≤ `RMSE_THRESHOLD` (por defecto, **60.0**).
+2. **Comparación con el modelo campeón:** no hay un modelo campeón actual, o el RMSE
+   del candidato es mejor o igual que el RMSE del modelo campeón actual.
 
-Why 60.0?
+¿Por qué 60.0?
 
-- The test target standard deviation is about 73.2.
-- A constant-mean baseline has test RMSE ≈ 73.2.
-- The quality gate (60.0) requires roughly an 18% improvement over that baseline.
-- The current champion achieves 53.73, about a 27% improvement.
+- La desviación estándar de la variable objetivo en test es de aproximadamente 73.2.
+- Una línea base de media constante tiene un RMSE de test ≈ 73.2.
+- El criterio de calidad (60.0) exige aproximadamente una mejora del 18 % sobre esa línea base.
+- El modelo campeón actual alcanza 53.73, aproximadamente una mejora del 27 %.
 
-This is deliberately a simple, explainable gate—not an overfit threshold tuned to
-the test set.
+Se trata deliberadamente de un criterio simple y explicable, no de un umbral
+sobreajustado al conjunto de test.
 
-Each registered version is tagged with `test_rmse`, `test_mae`, `test_r2`,
+Cada versión registrada se etiqueta con `test_rmse`, `test_mae`, `test_r2`,
 `training_run_id`, `quality_gate_threshold`, `quality_gate`, `promotion_status`,
-`candidate_model` and the git SHA. The full decision (including the previous
-champion and the reason) is written to
-`artifacts/reports/champion_selection.json` and logged as a separate MLflow run.
+`candidate_model` y el SHA de git. La decisión completa (incluido el modelo campeón
+anterior y el motivo) se escribe en `artifacts/reports/champion_selection.json` y se
+registra como una ejecución independiente de MLflow.
 
-If the candidate fails the gate and there is no previous champion, the `register`
-stage raises an error and the process exits non-zero, so CI fails. If a candidate
-passes the gate but is worse than the current champion, the current champion is
-kept and the pipeline succeeds.
+Si el candidato no supera el criterio y no hay un modelo campeón anterior, la etapa
+`register` lanza un error y el proceso termina con un código distinto de cero, por
+lo que CI falla. Si un candidato supera el criterio pero es peor que el modelo
+campeón actual, se mantiene el modelo campeón actual y el pipeline finaliza
+correctamente.
 
 ---
 
-## 7. API serving
+## 7. Servicio de la API
 
-The FastAPI application loads the model behind
-`models:/diabetes-progression-model@champion` at startup. The API process can
-start even when no champion exists; in that case `/health` still returns 200 and
-the model endpoints return 503.
+La aplicación FastAPI carga el modelo detrás de
+`models:/diabetes-progression-model@champion` al iniciarse. El proceso de la API
+puede arrancar incluso cuando no existe un modelo campeón; en ese caso, `/health`
+sigue devolviendo 200 y los endpoints del modelo devuelven 503.
 
-Start the API from the repository root:
+Arranca la API desde la raíz del repositorio:
 
 ```bash
 uvicorn mlops.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Interactive documentation: <http://127.0.0.1:8000/docs>
+Documentación interactiva: <http://127.0.0.1:8000/docs>
 
 ### 7.1 Endpoints
 
-| Method | Path | Purpose |
+| Método | Ruta | Propósito |
 |---|---|---|
-| `GET` | `/health` | Liveness check; reports whether the model is loaded |
-| `GET` | `/model-info` | Registered model name, version, alias, run, metrics and gate status |
-| `POST` | `/predict` | Validates one patient record and returns a prediction |
+| `GET` | `/health` | Comprobación de actividad; informa si el modelo está cargado |
+| `GET` | `/model-info` | Nombre del modelo registrado, versión, alias, ejecución, métricas y estado del criterio de calidad |
+| `POST` | `/predict` | Valida un registro de paciente y devuelve una predicción |
 
-### 7.2 Examples
+### 7.2 Ejemplos
 
 ```bash
 curl http://127.0.0.1:8000/health
@@ -358,24 +363,25 @@ curl -X POST http://127.0.0.1:8000/predict \
 }
 ```
 
-The prediction depends on the current champion; the version number increases
-each time the pipeline registers a new model version.
+La predicción depende del modelo campeón actual; el número de versión aumenta cada
+vez que el pipeline registra una nueva versión del modelo.
 
 ---
 
-## 8. Error handling
+## 8. Gestión de errores
 
-| Scenario | HTTP status | Behavior |
+| Escenario | Estado HTTP | Comportamiento |
 |---|---|---|
-| Valid request | `200` | Prediction returned with model name, version and alias |
-| Missing feature, extra field, wrong type, invalid JSON | `422` | Pydantic validation error; invalid data never reaches the model |
-| Champion alias/model not loaded | `503` | `/model-info` and `/predict` return a clear service-unavailable error; `/health` still returns `200` |
-| Model loaded but inference fails | `500` | Error is logged and a generic `Prediction failed.` response is returned |
+| Solicitud válida | `200` | Se devuelve la predicción con el nombre del modelo, la versión y el alias |
+| Falta una característica, campo adicional, tipo incorrecto, JSON no válido | `422` | Error de validación de Pydantic; los datos no válidos nunca llegan al modelo |
+| Alias/modelo campeón no cargado | `503` | `/model-info` y `/predict` devuelven un error claro de servicio no disponible; `/health` sigue devolviendo `200` |
+| Modelo cargado pero la inferencia falla | `500` | Se registra el error y se devuelve una respuesta genérica `Prediction failed.` |
 
-The distinction matters: `503` means the service cannot serve because the model is
-unavailable, while `500` means the service is up but the model call failed.
+La distinción importa: `503` significa que el servicio no puede atender porque el
+modelo no está disponible, mientras que `500` significa que el servicio está activo
+pero la llamada al modelo falló.
 
-Example invalid request (missing `bmi`):
+Ejemplo de solicitud no válida (falta `bmi`):
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/predict \
@@ -386,9 +392,10 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/predict \
 
 ---
 
-## 9. Installation
+## 9. Instalación
 
-Use Python **3.12 or 3.13** (MLflow's current 3.x line is tested there).
+Usa Python **3.12 o 3.13** (la línea 3.x actual de MLflow se prueba en esas
+versiones).
 
 ```bash
 python3.12 -m venv .venv
@@ -397,39 +404,40 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-With `uv`:
+Con `uv`:
 
 ```bash
 uv venv --python 3.12 .venv
 uv pip install -r requirements.txt
 ```
 
-Notebook dependencies are separate so the production/CI install stays small:
+Las dependencias del notebook son independientes para que la instalación de
+producción/CI se mantenga pequeña:
 
 ```bash
 pip install -r requirements-notebook.txt
 jupyter lab notebooks/01_exploratory_analysis.ipynb
 ```
 
-### Quick start
+### Inicio rápido
 
 ```bash
-# 1. Full pipeline: data + training + registry + champion
+# 1. Pipeline completo: datos + entrenamiento + registro + modelo campeón
 python -m mlops.pipeline
 
-# 2. Unit tests
+# 2. Pruebas unitarias
 pytest -q
 
-# 3. Real end-to-end test against the local MLflow registry
+# 3. Prueba real de extremo a extremo contra el registro local de MLflow
 RUN_INTEGRATION=1 pytest -q
 
-# 4. Serve the champion
+# 4. Servir el modelo campeón
 uvicorn mlops.api.main:app --host 0.0.0.0 --port 8000
 ```
 
-Then open <http://127.0.0.1:8000/docs> or call the endpoints above.
+Luego abre <http://127.0.0.1:8000/docs> o llama a los endpoints anteriores.
 
-To reset all generated local state:
+Para restablecer todo el estado local generado:
 
 ```bash
 rm -rf mlflow.db mlruns data/raw/*.csv data/processed/*.csv artifacts/reports/*.json
@@ -438,85 +446,89 @@ python -m mlops.pipeline
 
 ---
 
-## 10. Tests
+## 10. Pruebas
 
-| File | Type | What it covers |
+| Archivo | Tipo | Qué cubre |
 |---|---|---|
-| `tests/test_data_pipeline.py` | Unit | extraction, validation failures, cleaning, split determinism |
-| `tests/test_champion_selection.py` | Unit | quality gate and champion comparison policy |
-| `tests/test_api.py` | Unit | endpoints, 200/422/503/500 paths with a fake model |
-| `tests/test_integration_champion.py` | Integration | loads the real MLflow champion and calls all endpoints |
+| `tests/test_data_pipeline.py` | Unitaria | extracción, fallos de validación, limpieza, determinismo de la división |
+| `tests/test_champion_selection.py` | Unitaria | criterio de calidad y política de comparación con el modelo campeón |
+| `tests/test_api.py` | Unitaria | endpoints, rutas 200/422/503/500 con un modelo falso |
+| `tests/test_integration_champion.py` | Integración | carga el modelo campeón real de MLflow y llama a todos los endpoints |
 
-Default run:
+Ejecución predeterminada:
 
 ```bash
 pytest -q
-# 25 passed, 1 skipped (integration excluded)
+# 25 passed, 1 skipped (integración excluida)
 ```
 
-End-to-end run after the pipeline:
+Ejecución de extremo a extremo después del pipeline:
 
 ```bash
 RUN_INTEGRATION=1 pytest -q
 # 26 passed
 ```
 
-The integration test reads a real row from `data/processed/test.csv`, asks the
-actual champion for a prediction and checks that the model version, alias and
-metrics are consistent. CI sets `RUN_INTEGRATION=1` after training/registration.
+La prueba de integración lee una fila real de `data/processed/test.csv`, solicita
+una predicción al modelo campeón real y comprueba que la versión del modelo, el alias
+y las métricas sean coherentes. CI establece `RUN_INTEGRATION=1` después del
+entrenamiento/registro.
 
 ---
 
-## 11. CI/CD with GitHub Actions
+## 11. CI/CD con GitHub Actions
 
-Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+Flujo de trabajo: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
-Triggers:
+Disparadores:
 
-- push to `main` or `master`;
-- pull request targeting `main` or `master`;
-- manual `workflow_dispatch`.
+- push a `main` o `master`;
+- pull request dirigida a `main` o `master`;
+- `workflow_dispatch` manual.
 
-Job steps:
+Pasos del job:
 
 1. checkout;
-2. set up Python 3.12 with pip cache;
-3. install `requirements.txt`;
-4. run `python -m mlops.pipeline` (extract → validate → clean → split → train → register);
-5. run `python -m pytest -q` with `RUN_INTEGRATION=1`, so the real registry and API are exercised;
-6. upload `artifacts/reports/`, `mlflow.db` and `mlruns/` as a workflow artifact.
+2. configurar Python 3.12 con caché de pip;
+3. instalar `requirements.txt`;
+4. ejecutar `python -m mlops.pipeline` (extract → validate → clean → split → train → register);
+5. ejecutar `python -m pytest -q` con `RUN_INTEGRATION=1`, de modo que se ejerciten el registro y la API reales;
+6. subir `artifacts/reports/`, `mlflow.db` y `mlruns/` como artefacto del flujo de trabajo.
 
-The CI run uses an isolated SQLite database and starts with no champion, so it also
-verifies that a fresh clone can train, register and serve a model. No secrets are
-required for the default local setup. Switching `MLFLOW_TRACKING_URI` to a remote
-MLflow server would require the corresponding credentials in GitHub Actions.
+La ejecución de CI utiliza una base de datos SQLite aislada y comienza sin modelo
+campeón, por lo que también verifica que un clon nuevo puede entrenar, registrar y
+servir un modelo. No se requieren secretos para la configuración local
+predeterminada. Cambiar `MLFLOW_TRACKING_URI` a un servidor MLflow remoto requeriría
+las credenciales correspondientes en GitHub Actions.
 
-The quality gate is part of the automation: if no candidate passes and no previous
-champion exists, the register stage exits non-zero and the workflow fails.
+El criterio de calidad forma parte de la automatización: si ningún candidato lo
+supera y no existe un modelo campeón anterior, la etapa de registro termina con un
+código distinto de cero y el flujo de trabajo falla.
 
 ---
 
-## 12. Configuration
+## 12. Configuración
 
-All defaults live in `mlops/config.py`. Environment variables override them:
+Todos los valores predeterminados están en `mlops/config.py`. Las variables de
+entorno los sobrescriben:
 
-| Variable | Default | Purpose |
+| Variable | Valor por defecto | Propósito |
 |---|---|---|
-| `MLFLOW_TRACKING_URI` | `sqlite:///<repo>/mlflow.db` | MLflow tracking and registry backend |
-| `MLFLOW_ARTIFACT_DIR` | `<repo>/mlruns` | Artifact root for local SQLite/file backends |
-| `MLFLOW_EXPERIMENT` | `diabetes-progression` | Experiment name |
-| `MODEL_NAME` | `diabetes-progression-model` | Registered model name |
-| `CHAMPION_ALIAS` | `champion` | Alias assigned to the selected model |
-| `RMSE_THRESHOLD` | `60.0` | Quality gate for champion promotion |
-| `TEST_SIZE` | `0.2` | Test split fraction |
-| `RANDOM_STATE` | `42` | Split and model randomness |
-| `DATA_RAW_DIR` | `<repo>/data/raw` | Raw data directory |
-| `DATA_PROCESSED_DIR` | `<repo>/data/processed` | Cleaned/split data directory |
-| `REPORTS_DIR` | `<repo>/artifacts/reports` | JSON audit reports |
-| `LOG_LEVEL` | `INFO` | Python logging level |
-| `RUN_INTEGRATION` | unset | Test-only flag for the real MLflow integration test |
+| `MLFLOW_TRACKING_URI` | `sqlite:///<repo>/mlflow.db` | Backend de seguimiento y registro de MLflow |
+| `MLFLOW_ARTIFACT_DIR` | `<repo>/mlruns` | Raíz de artefactos para backends locales SQLite/archivo |
+| `MLFLOW_EXPERIMENT` | `diabetes-progression` | Nombre del experimento |
+| `MODEL_NAME` | `diabetes-progression-model` | Nombre del modelo registrado |
+| `CHAMPION_ALIAS` | `champion` | Alias asignado al modelo seleccionado |
+| `RMSE_THRESHOLD` | `60.0` | Criterio de calidad para la promoción del modelo campeón |
+| `TEST_SIZE` | `0.2` | Fracción de la división de test |
+| `RANDOM_STATE` | `42` | Aleatoriedad de la división y de los modelos |
+| `DATA_RAW_DIR` | `<repo>/data/raw` | Directorio de datos sin procesar |
+| `DATA_PROCESSED_DIR` | `<repo>/data/processed` | Directorio de datos limpios/divisiones |
+| `REPORTS_DIR` | `<repo>/artifacts/reports` | Informes de auditoría JSON |
+| `LOG_LEVEL` | `INFO` | Nivel de logging de Python |
+| `RUN_INTEGRATION` | sin establecer | Indicador exclusivo de pruebas para la prueba de integración real con MLflow |
 
-Example: require a stricter gate in CI:
+Ejemplo: exigir un criterio más estricto en CI:
 
 ```bash
 RMSE_THRESHOLD=55.0 python -m mlops.pipeline
@@ -524,59 +536,62 @@ RMSE_THRESHOLD=55.0 python -m mlops.pipeline
 
 ---
 
-## 13. Design decisions and limitations
+## 13. Decisiones de diseño y limitaciones
 
-### Why aliases instead of stages?
+### ¿Por qué alias en lugar de etapas?
 
-MLflow stages (`Staging`, `Production`) are deprecated in MLflow 3.x. Aliases are
-the current mechanism: `models:/diabetes-progression-model@champion` always points
-to the selected version, and promoting a new version is a single registry update.
+Las etapas de MLflow (`Staging`, `Production`) están obsoletas en MLflow 3.x. Los
+alias son el mecanismo actual: `models:/diabetes-progression-model@champion` siempre
+apunta a la versión seleccionada, y promover una nueva versión es una única
+actualización del registro.
 
-### Why a pipeline object?
+### ¿Por qué un objeto pipeline?
 
-The scaler and estimator are trained and serialized together. The API receives
-the same object that was evaluated, avoiding training/serving skew.
+El escalador y el estimador se entrenan y serializan juntos. La API recibe el mismo
+objeto que se evaluó, lo que evita el desajuste entre entrenamiento y servicio.
 
-### Why keep all candidates?
+### ¿Por qué conservar todos los candidatos?
 
-Every candidate gets its own run and model artifact. That preserves the experiment
-history, even though only the best candidate is registered and potentially
-promoted. The training summary is stored in
+Cada candidato tiene su propia ejecución y artefacto de modelo. Eso preserva el
+historial de experimentos, aunque solo el mejor candidato se registra y
+potencialmente se promueve. El resumen del entrenamiento se almacena en
 `artifacts/reports/training_summary.json`.
 
-### Security note on serialization
+### Nota de seguridad sobre la serialización
 
-MLflow 3 serializes scikit-learn models with `skops` by default. Tree-based
-candidates require trusting `sklearn.tree._tree.Tree`, which is generated by our
-own training code. The trusted type is declared explicitly in
-`mlops/training/train.py`; no arbitrary pickle from an external source is loaded.
+MLflow 3 serializa los modelos de scikit-learn con `skops` de forma predeterminada.
+Los candidatos basados en árboles requieren confiar en `sklearn.tree._tree.Tree`, que
+genera nuestro propio código de entrenamiento. El tipo de confianza se declara
+explícitamente en `mlops/training/train.py`; no se carga ningún pickle arbitrario de
+una fuente externa.
 
-### Current limitations (intentional scope)
+### Limitaciones actuales (alcance intencionado)
 
-- Median imputation is computed on the full cleaned dataset before the split. The
-  diabetes dataset has no missing values, so there is no practical leakage here.
-  A stricter production design would fit the imputer on the training split only.
-- SQLite is single-writer and intended for local/CI use. Use a remote MLflow
-  backend for concurrent teams.
-- There is no authentication, rate limiting, drift monitoring or automatic
-  retraining schedule; these are outside the assignment's scope.
-- The API serves one model and one prediction per request; batch prediction is not
-  implemented.
+- La imputación por mediana se calcula sobre el conjunto de datos limpio completo
+  antes de la división. El conjunto de datos de diabetes no tiene valores faltantes,
+  así que aquí no hay una fuga de datos práctica. Un diseño de producción más
+  estricto ajustaría el imputador solo en la división de entrenamiento.
+- SQLite admite un único escritor y está pensado para uso local/CI. Usa un backend
+  de MLflow remoto para equipos con concurrencia.
+- No hay autenticación, limitación de tasa, monitorización de deriva ni programación
+  de reentrenamiento automático; quedan fuera del alcance de la tarea.
+- La API sirve un modelo y una predicción por solicitud; la predicción por lotes no
+  está implementada.
 
 ---
 
-## 14. Deliverables checklist
+## 14. Lista de entregables
 
-- [x] Exploratory notebook (executed copy under `notebooks/`).
-- [x] Data extraction, validation and cleaning scripts.
-- [x] Deterministic train/test split.
-- [x] Training script with several candidates.
-- [x] MLflow tracking (params, metrics, model, artifacts).
-- [x] MLflow Model Registry and champion alias.
-- [x] Quality gate and champion comparison logic.
-- [x] FastAPI endpoints `/health`, `/model-info`, `/predict`.
-- [x] Basic API error handling (422, 503, 500).
-- [x] GitHub Actions workflow on push/PR.
-- [x] README with setup, execution and API examples.
-- [x] Requirements file and clear project structure.
-- [x] Unit tests and a real-registry integration test.
+- [x] Notebook exploratorio (copia ejecutada en `notebooks/`).
+- [x] Scripts de extracción, validación y limpieza de datos.
+- [x] División determinista train/test.
+- [x] Script de entrenamiento con varios candidatos.
+- [x] Seguimiento de experimentos con MLflow (parámetros, métricas, modelo, artefactos).
+- [x] Registro de modelos de MLflow y alias del modelo campeón.
+- [x] Criterio de calidad y lógica de comparación con el modelo campeón.
+- [x] Endpoints de FastAPI `/health`, `/model-info`, `/predict`.
+- [x] Gestión básica de errores de la API (422, 503, 500).
+- [x] Flujo de trabajo de GitHub Actions en push/PR.
+- [x] README con configuración, ejecución y ejemplos de API.
+- [x] Archivo de requisitos y estructura de proyecto clara.
+- [x] Pruebas unitarias y una prueba de integración con el registro real.

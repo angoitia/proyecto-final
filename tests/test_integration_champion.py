@@ -1,11 +1,11 @@
-"""Optional end-to-end test against the real MLflow registry.
+"""Prueba opcional de extremo a extremo contra el registro real de MLflow.
 
-Run it after the pipeline::
+Ejecútala después del pipeline::
 
     RUN_INTEGRATION=1 pytest tests/test_integration_champion.py -q
 
-CI enables it after training/registration, so the same test proves that the
-actual champion artifact can be loaded and served.
+CI la habilita después del entrenamiento/registro, así que la misma prueba
+demuestra que el artefacto real del champion se puede cargar y servir.
 """
 
 from __future__ import annotations

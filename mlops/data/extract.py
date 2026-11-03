@@ -1,8 +1,9 @@
-"""Data extraction stage.
+"""Etapa de extracción de datos.
 
-The exploratory notebook loads scikit-learn's built-in diabetes dataset. In a
-real project this module would fetch data from a database, object storage or an
-API; the important part is that the rest of the pipeline consumes a raw file.
+El notebook exploratorio carga el dataset de diabetes integrado en
+scikit-learn. En un proyecto real este módulo descargaría datos de una base de
+datos, un almacén de objetos o una API; lo importante es que el resto del
+pipeline consume un archivo sin procesar.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_data(output_path: Path) -> pd.DataFrame:
-    """Load the diabetes dataset and persist it as an immutable raw CSV."""
+    """Carga el dataset de diabetes y lo persiste como un CSV sin procesar e inmutable."""
     dataset = load_diabetes(as_frame=True)
     dataframe = dataset.frame.copy()
 

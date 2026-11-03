@@ -1,4 +1,4 @@
-"""Champion-selection policy tests (no MLflow server required)."""
+"""Pruebas de la política de selección del champion (no requieren servidor MLflow)."""
 
 from __future__ import annotations
 

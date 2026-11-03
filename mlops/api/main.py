@@ -1,4 +1,4 @@
-"""FastAPI application serving the current MLflow champion."""
+"""Aplicación FastAPI que sirve al campeón actual de MLflow."""
 
 from __future__ import annotations
 
@@ -21,15 +21,16 @@ logger = logging.getLogger(__name__)
 
 
 def get_model_state(request: Request) -> ModelState:
-    """Dependency that exposes the application's model state (easy to override in tests)."""
+    """Dependencia que expone el estado del modelo de la aplicación (fácil de sobrescribir en tests)."""
     return request.app.state.model_state
 
 
 def create_app(autoload: bool = True) -> FastAPI:
-    """Application factory.
+    """Fábrica de la aplicación.
 
-    ``autoload=False`` keeps tests fast and independent from a trained MLflow
-    registry; production uses the module-level ``app`` (autoload enabled).
+    El parámetro ``autoload=False`` mantiene los tests rápidos e independientes
+    del registro de MLflow entrenado; la producción usa la ``app`` de módulo
+    (autoload habilitado).
     """
 
     @asynccontextmanager
@@ -41,10 +42,10 @@ def create_app(autoload: bool = True) -> FastAPI:
         yield
 
     app = FastAPI(
-        title="Diabetes Progression API",
+        title="API de Progresión de Diabetes",
         description=(
-            "Serves the champion model registered in the local MLflow Model Registry. "
-            "The champion is selected by the automated MLOps pipeline."
+            "Sirve el modelo campeón registrado en el Model Registry local de MLflow. "
+            "El campeón se selecciona mediante el pipeline MLOps automatizado."
         ),
         version="1.0.0",
         lifespan=lifespan,
@@ -52,7 +53,7 @@ def create_app(autoload: bool = True) -> FastAPI:
 
     @app.get("/health", response_model=HealthResponse, tags=["system"])
     def health(state: ModelState = Depends(get_model_state)) -> HealthResponse:
-        """Liveness probe. Returns 200 even when the model is unavailable."""
+        """Prueba de vida. Devuelve 200 incluso cuando el modelo no está disponible."""
         champion = state.champion
         return HealthResponse(
             status="ok",
@@ -63,7 +64,7 @@ def create_app(autoload: bool = True) -> FastAPI:
 
     @app.get("/model-info", response_model=ModelInfoResponse, tags=["model"])
     def model_info(state: ModelState = Depends(get_model_state)) -> ModelInfoResponse:
-        """Metadata of the model currently behind the ``champion`` alias."""
+        """Metadatos del modelo que está detrás del alias ``champion``."""
         if not state.is_loaded or state.champion is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -86,7 +87,7 @@ def create_app(autoload: bool = True) -> FastAPI:
         payload: PatientFeatures,
         state: ModelState = Depends(get_model_state),
     ) -> PredictionResponse:
-        """Predict disease progression for one patient record."""
+        """Predice la progresión de la enfermedad para un registro de paciente."""
         if not state.is_loaded or state.champion is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

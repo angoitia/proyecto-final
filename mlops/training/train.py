@@ -1,8 +1,9 @@
-"""Model training with MLflow experiment tracking.
+"""Entrenamiento de modelos con seguimiento de experimentos en MLflow.
 
-This stage trains every candidate, logs parameters/metrics/artifacts in
-individual MLflow runs and records which run produced the best test RMSE.
-Registration happens in the next stage (``mlops.training.registry``).
+Esta etapa entrena cada candidato, registra parámetros/métricas/artefactos en
+corridas individuales de MLflow y registra qué corrida produjo el mejor RMSE de
+prueba. El registro ocurre en la siguiente etapa
+(``mlops.training.registry``).
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 def regression_metrics(y_true: pd.Series, predictions: np.ndarray) -> dict[str, float]:
-    """Compute the metrics used to evaluate every candidate."""
+    """Calcula las métricas utilizadas para evaluar cada candidato."""
     return {
         "rmse": float(np.sqrt(mean_squared_error(y_true, predictions))),
         "mae": float(mean_absolute_error(y_true, predictions)),
@@ -75,7 +76,7 @@ def _feature_importance_frame(estimator: Any, feature_columns: tuple[str, ...]) 
 
 
 def train_models(settings: Settings | None = None) -> dict[str, Any]:
-    """Train all candidates and persist a training summary for registration."""
+    """Entrena a todos los candidatos y persiste un resumen de entrenamiento para el registro."""
     settings = settings or get_settings()
     settings.ensure_directories()
 
@@ -124,9 +125,9 @@ def train_models(settings: Settings | None = None) -> dict[str, Any]:
                 "input_example": X_train.head(3),
             }
             if "skops_trusted_types" in inspect.signature(mlflow.sklearn.log_model).parameters:
-                # MLflow >= 3 serializes scikit-learn models with skops by
-                # default. Tree-based candidates contain this internally
-                # generated type; the artifact is produced by our own pipeline.
+                # MLflow >= 3 serializa los modelos de scikit-learn con skops por
+                # defecto. Los candidatos basados en árboles contienen este tipo
+                # generado internamente; el artefacto lo produce nuestro propio pipeline.
                 log_model_kwargs["skops_trusted_types"] = ["sklearn.tree._tree.Tree"]
             model_info = mlflow.sklearn.log_model(**log_model_kwargs)
             mlflow.log_dict(
@@ -182,6 +183,6 @@ def train_models(settings: Settings | None = None) -> dict[str, Any]:
 
 
 def load_training_summary(settings: Settings | None = None) -> dict[str, Any]:
-    """Load the summary produced by :func:`train_models`."""
+    """Carga el resumen producido por :func:`train_models`."""
     settings = settings or get_settings()
     return read_json(settings.training_summary_path)

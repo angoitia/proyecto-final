@@ -1,4 +1,4 @@
-"""Deterministic train/test split."""
+"""División determinista en entrenamiento y prueba."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def split_data(
     feature_columns: tuple[str, ...] = FEATURE_COLUMNS,
     target_column: str = TARGET_COLUMN,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split a cleaned dataset into train and test frames."""
+    """Divide un dataset limpio en los conjuntos de entrenamiento y prueba."""
     columns = list(feature_columns) + [target_column]
     missing_columns = [column for column in columns if column not in dataframe.columns]
     if missing_columns:
@@ -53,7 +53,7 @@ def build_split_report(
     random_state: int,
     target_column: str = TARGET_COLUMN,
 ) -> dict[str, Any]:
-    """Metadata useful for auditing the split."""
+    """Metadatos útiles para auditar la división."""
     return {
         "created_at": utc_now(),
         "test_size": test_size,

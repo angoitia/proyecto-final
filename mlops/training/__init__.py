@@ -1,4 +1,4 @@
-"""Training and registry package."""
+"""Paquete de entrenamiento y registro."""
 
 from mlops.training.registry import (
     PromotionDecision,

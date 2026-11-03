@@ -1,4 +1,4 @@
-"""MLflow configuration shared by training and registry stages."""
+"""Configuración de MLflow compartida por las etapas de entrenamiento y registro."""
 
 from __future__ import annotations
 
@@ -9,10 +9,11 @@ from mlops.config import Settings
 
 
 def configure_mlflow(settings: Settings) -> None:
-    """Point MLflow at the configured tracking/registry backend and experiment.
+    """Apunta a MLflow al backend de seguimiento/registro configurado y al experimento.
 
-    For local SQLite/file backends the artifact location is made absolute, so
-    models can be loaded from any working directory (pipeline, API, tests).
+    Para backends locales SQLite/archivo la ubicación de los artefactos se hace
+    absoluta, de modo que los modelos puedan cargarse desde cualquier directorio
+    de trabajo (pipeline, API, tests).
     """
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_registry_uri(settings.mlflow_tracking_uri)

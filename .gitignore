@@ -9,22 +9,22 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Notebooks
+# Cuadernos
 .ipynb_checkpoints/
 
-# MLflow local state and generated artifacts
+# Estado local de MLflow y artefactos generados
 mlflow.db
 mlflow.db-*
 mlruns/
 artifacts/reports/*.json
 !artifacts/reports/.gitkeep
 
-# Generated data (recreate with `python -m mlops.pipeline`)
+# Datos generados (recrearlos con `python -m mlops.pipeline`)
 data/raw/*.csv
 data/processed/*.csv
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Local environment
+# Entorno local
 .env
 *.log

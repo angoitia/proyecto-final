@@ -1,4 +1,4 @@
-"""Small shared helpers."""
+"""Pequeños helpers compartidos."""
 
 from __future__ import annotations
 
@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def utc_now() -> str:
-    """ISO-8601 timestamp in UTC."""
+    """Devuelve la marca temporal ISO-8601 en UTC."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def configure_logging(level: str | None = None) -> None:
-    """Configure a readable console logger once per process."""
+    """Configura un logger de consola legible una vez por proceso."""
     logging.basicConfig(
         level=getattr(logging, (level or os.getenv("LOG_LEVEL", "INFO")).upper(), logging.INFO),
         format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -27,7 +27,7 @@ def configure_logging(level: str | None = None) -> None:
 
 
 def git_sha() -> str | None:
-    """Return the current commit SHA when the project is inside a git repo."""
+    """Devuelve el SHA del commit actual cuando el proyecto está en un repositorio git."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -43,7 +43,7 @@ def git_sha() -> str | None:
 
 
 def _json_default(value: Any) -> Any:
-    """Convert numpy/pandas scalar types to JSON-friendly Python types."""
+    """Convierte los tipos escalares de numpy/pandas a tipos Python compatibles con JSON."""
     if hasattr(value, "item"):
         return value.item()
     if isinstance(value, Path):
@@ -52,14 +52,14 @@ def _json_default(value: Any) -> Any:
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
-    """Write pretty JSON, creating parent directories as needed."""
+    """Escribe JSON formateado, creando los directorios padre cuando sea necesario."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, default=_json_default) + "\n", encoding="utf-8")
     logger.info("Wrote %s", path)
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    """Read a JSON document from disk."""
+    """Lee un documento JSON desde el disco."""
     if not path.exists():
         raise FileNotFoundError(
             f"Required file not found: {path}. Run the previous pipeline stages first."

@@ -1,4 +1,4 @@
-"""Data engineering package: extraction, validation, cleaning and splitting."""
+"""Paquete de ingeniería de datos: extracción, validación, limpieza y separación."""
 
 from mlops.data.clean import clean_data
 from mlops.data.extract import extract_data

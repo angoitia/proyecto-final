@@ -1,4 +1,4 @@
-"""API tests use a fake in-memory champion so they do not need MLflow."""
+"""Las pruebas de la API usan un champion falso en memoria para no necesitar MLflow."""
 
 from __future__ import annotations
 

@@ -1,8 +1,9 @@
-"""Central project configuration.
+"""Configuración central del proyecto.
 
-All paths and tunable values live here so that the data, training, registry and
-API layers do not hard-code them. Environment variables make the project easy to
-run locally, in CI, or against a remote MLflow server.
+Todas las rutas y los valores ajustables viven aquí para que las capas de
+datos, entrenamiento, registro e API no los definan directamente. Las variables
+de entorno hacen que el proyecto sea fácil de ejecutar localmente, en CI o contra
+un servidor MLflow remoto.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ TARGET_COLUMN = "target"
 
 
 def _env_path(name: str, default: Path) -> Path:
-    """Read a path from the environment, resolving relative paths to the repo."""
+    """Lee una ruta desde el entorno, resolviendo las rutas relativas al repositorio."""
     raw = os.getenv(name)
     path = Path(raw).expanduser() if raw else default
     if not path.is_absolute():
@@ -45,7 +46,7 @@ def _env_float(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    """Runtime settings shared by every pipeline stage."""
+    """Ajustes de ejecución compartidos por todas las etapas del pipeline."""
 
     project_root: Path = PROJECT_ROOT
     data_raw_dir: Path = field(default_factory=lambda: _env_path("DATA_RAW_DIR", PROJECT_ROOT / "data" / "raw"))
@@ -130,5 +131,5 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return cached settings (clear the cache after changing env vars)."""
+    """Devuelve los ajustes en caché (limpiar la caché tras cambiar variables de entorno)."""
     return Settings()

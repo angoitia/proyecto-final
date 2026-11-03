@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas for the serving API."""
+"""Esquemas Pydantic de request/response para el servicio de la API."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ FEATURE_EXAMPLE = {
 
 
 class PatientFeatures(BaseModel):
-    """One patient record with the ten standardized diabetes features."""
+    """Un registro de paciente con las diez características normalizadas de la diabetes."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -29,16 +29,16 @@ class PatientFeatures(BaseModel):
         json_schema_extra={"example": FEATURE_EXAMPLE},
     )
 
-    age: float = Field(..., description="Age (standardized)")
-    sex: float = Field(..., description="Sex (standardized)")
-    bmi: float = Field(..., description="Body mass index (standardized)")
-    bp: float = Field(..., description="Average blood pressure (standardized)")
-    s1: float = Field(..., description="Total serum cholesterol (standardized)")
-    s2: float = Field(..., description="Low-density lipoproteins (standardized)")
-    s3: float = Field(..., description="High-density lipoproteins (standardized)")
-    s4: float = Field(..., description="Total cholesterol / HDL ratio (standardized)")
-    s5: float = Field(..., description="Log serum triglycerides (standardized)")
-    s6: float = Field(..., description="Blood sugar level (standardized)")
+    age: float = Field(..., description="Edad (estandarizada)")
+    sex: float = Field(..., description="Sexo (estandarizada)")
+    bmi: float = Field(..., description="Índice de masa corporal (estandarizado)")
+    bp: float = Field(..., description="Presión arterial media (estandarizada)")
+    s1: float = Field(..., description="Colesterol total en sangre (estandarizado)")
+    s2: float = Field(..., description="Lipoproteínas de baja densidad (estandarizadas)")
+    s3: float = Field(..., description="Lipoproteínas de alta densidad (estandarizadas)")
+    s4: float = Field(..., description="Relación colesterol total / HDL (estandarizada)")
+    s5: float = Field(..., description="Triglicéridos séricos en logaritmo (estandarizado)")
+    s6: float = Field(..., description="Nivel de glucosa en sangre (estandarizado)")
 
 
 class HealthResponse(BaseModel):

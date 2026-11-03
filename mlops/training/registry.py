@@ -1,12 +1,12 @@
-"""Model registry and champion selection.
+"""Registro de modelos y selección del campeón.
 
-A candidate is promoted to the ``champion`` alias only when:
+Un candidato se promueve al alias ``champion`` solo cuando:
 
-1. its test RMSE passes the quality gate (``RMSE_THRESHOLD``), and
-2. there is no current champion or its RMSE is at least as good as the
-   current champion's RMSE.
+1. su RMSE de prueba pasa el quality gate (``RMSE_THRESHOLD``), y
+2. no hay un campeón actual o su RMSE es mejor o igual al RMSE del campeón
+   actual.
 
-The decision is stored both in MLflow and in a local JSON report.
+La decisión se guarda tanto en MLflow como en un informe JSON local.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def decide_promotion(
     threshold: float,
     current_champion_rmse: float | None = None,
 ) -> PromotionDecision:
-    """Pure champion-selection policy (easy to unit test)."""
+    """Política pura de selección del campeón (fácil de probar unitariamente)."""
     if new_rmse > threshold:
         return PromotionDecision(
             promote=False,
@@ -75,7 +75,7 @@ def decide_promotion(
 
 
 def _version_rmse(client: MlflowClient, version: Any) -> float | None:
-    """Read test RMSE from the run, falling back to the model-version tag."""
+    """Lee el RMSE de prueba de la corrida, con fallback a la etiqueta de la versión del modelo."""
     try:
         run = client.get_run(version.run_id)
         value = run.data.metrics.get("test_rmse")
@@ -124,7 +124,7 @@ def register_and_select(
     summary: dict[str, Any] | None = None,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
-    """Register the best run and promote it to champion when it qualifies."""
+    """Registra la mejor corrida y la promueve al campeón cuando califica."""
     settings = settings or get_settings()
     if summary is None:
         summary_path = settings.training_summary_path
@@ -267,6 +267,6 @@ def register_and_select(
 
 
 def load_selection(settings: Settings | None = None) -> dict[str, Any]:
-    """Load the last champion-selection report."""
+    """Carga el último informe de selección del campeón."""
     settings = settings or get_settings()
     return read_json(settings.champion_selection_path)

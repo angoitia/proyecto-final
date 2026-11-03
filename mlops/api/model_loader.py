@@ -1,4 +1,4 @@
-"""Load the champion model from the MLflow Model Registry."""
+"""Carga del modelo campeón desde el MLflow Model Registry."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class ModelUnavailableError(RuntimeError):
-    """Raised when no champion model is loaded."""
+    """Se levanta cuando no hay ningún modelo campeón cargado."""
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ class LoadedChampion:
 
 
 def load_champion(settings: Settings | None = None) -> LoadedChampion:
-    """Resolve the ``champion`` alias and load its MLflow pyfunc model."""
+    """Resuelve el alias ``champion`` y carga su modelo pyfunc de MLflow."""
     settings = settings or get_settings()
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_registry_uri(settings.mlflow_tracking_uri)
@@ -107,7 +107,7 @@ def load_champion(settings: Settings | None = None) -> LoadedChampion:
 
 
 class ModelState:
-    """Mutable state owned by the FastAPI application."""
+    """Estado mutable propiedad de la aplicación FastAPI."""
 
     def __init__(self) -> None:
         self.champion: LoadedChampion | None = None

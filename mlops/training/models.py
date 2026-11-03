@@ -1,4 +1,4 @@
-"""Candidate model definitions."""
+"""Definiciones de los modelos candidatos."""
 
 from __future__ import annotations
 
@@ -9,12 +9,13 @@ from sklearn.preprocessing import StandardScaler
 
 
 def build_candidates(random_state: int) -> dict[str, Pipeline]:
-    """Return the models compared in every training run.
+    """Devuelve los modelos que se comparan en cada ejecución de entrenamiento.
 
-    The candidate definitions mirror the notebook's baseline comparison. Every
-    candidate includes its own preprocessing inside a scikit-learn Pipeline, so
-    the exact object logged to MLflow is also the object served by the API (no
-    training/serving skew).
+    Las definiciones de candidatos reflejan la comparación de referencia del
+    notebook. Cada candidato incluye su propio preprocesamiento dentro de un
+    ``Pipeline`` de scikit-learn, de modo que el objeto exacto registrado en
+    MLflow también es el objeto servido por la API (sin desviación entre el
+    entrenamiento y el servicio).
     """
     return {
         "linear_regression": Pipeline(

@@ -1,1 +1,1 @@
-"""FastAPI serving package."""
+"""Paquete de servicio FastAPI."""
