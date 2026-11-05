@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 
@@ -61,6 +62,32 @@ def create_app(autoload: bool = True) -> FastAPI:
             model_name=champion.info.model_name if champion else None,
             model_version=champion.info.version if champion else None,
         )
+
+    @app.get("/", tags=["system"])
+    def root() -> dict[str, Any]:
+        """Info básica del servicio."""
+        return {"status": "ok", "service": "diabetes-progression-api", "docs": "/docs"}
+
+    @app.get("/v1/models", tags=["model"])
+    def list_models(state: ModelState = Depends(get_model_state)) -> dict[str, Any]:
+        """Endpoint estandar de descubrimiento de modelos (estilo ``/v1/models``)."""
+        if not state.is_loaded or state.champion is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Champion model is not loaded. Run the training/registration pipeline first.",
+            )
+        info = state.champion.info
+        return {
+            "object": "list",
+            "data": [
+                {
+                    "id": f"{info.model_name}:{info.version}",
+                    "object": "model",
+                    "model_name": info.model_name,
+                    "version": str(info.version),
+                }
+            ],
+        }
 
     @app.get("/model-info", response_model=ModelInfoResponse, tags=["model"])
     def model_info(state: ModelState = Depends(get_model_state)) -> ModelInfoResponse:

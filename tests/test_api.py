@@ -100,6 +100,34 @@ def test_model_info_returns_503_without_model(make_client):
     assert response.status_code == 503
 
 
+def test_root_returns_ok(make_client):
+    with make_client(FakeState(loaded=True)) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["service"] == "diabetes-progression-api"
+
+
+def test_v1_models_returns_champion(make_client):
+    with make_client(FakeState(loaded=True)) as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["object"] == "list"
+    assert body["data"][0]["version"] == "7"
+    assert body["data"][0]["model_name"] == "diabetes-progression-model"
+
+
+def test_v1_models_returns_503_without_model(make_client):
+    with make_client(FakeState(loaded=False)) as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 503
+
+
 def test_predict_returns_prediction_and_version(make_client):
     with make_client(FakeState(loaded=True)) as client:
         response = client.post("/predict", json=FEATURE_EXAMPLE)

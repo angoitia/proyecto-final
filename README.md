@@ -324,6 +324,8 @@ Documentación interactiva: <http://127.0.0.1:8000/docs>
 |---|---|---|
 | `GET` | `/health` | Comprobación de actividad; informa si el modelo está cargado |
 | `GET` | `/model-info` | Nombre del modelo registrado, versión, alias, ejecución, métricas y estado del criterio de calidad |
+| `GET` | `/v1/models` | Endpoint estándar de descubrimiento de modelos (estilo `/v1/models`) |
+| `GET` | `/` | Info básica del servicio |
 | `POST` | `/predict` | Valida un registro de paciente y devuelve una predicción |
 
 ### 7.2 Ejemplos
