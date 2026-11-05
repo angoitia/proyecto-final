@@ -97,6 +97,9 @@ ocurre con los archivos procesados.
 ├── requirements.txt
 ├── requirements-notebook.txt
 ├── pytest.ini
+├── scripts/
+│   ├── setup.sh                    # creación de .venv e instalación de dependencias
+│   └── quickstart.sh               # pipeline MLOps + pruebas
 └── README.md
 ```
 
@@ -444,14 +447,16 @@ jupyter lab notebooks/01_exploratory_analysis.ipynb
 ### Inicio rápido
 
 ```bash
-# 1. Pipeline completo: datos + entrenamiento + registro + modelo campeón
-python -m mlops.pipeline
+# 1. Configurar el entorno (crea .venv e instala dependencias)
+./scripts/setup.sh
 
-# 2. Pruebas unitarias
-pytest -q
+# 2. Ejecución rápida: pipeline completo + pruebas
+./scripts/quickstart.sh
 
-# 3. Prueba real de extremo a extremo contra el registro local de MLflow
-RUN_INTEGRATION=1 pytest -q
+# 3. Variante manual:
+#    python -m mlops.pipeline
+#    pytest -q
+#    RUN_INTEGRATION=1 pytest -q
 
 # 4. Servir el modelo campeón
 uvicorn mlops.api.main:app --host 0.0.0.0 --port 8000
