@@ -27,10 +27,12 @@ def test_better_candidate_replaces_champion():
     assert decision.gate_passed is True
 
 
-def test_equal_candidate_is_promoted():
+def test_equal_candidate_does_not_replace_champion():
     decision = decide_promotion(new_rmse=53.0, threshold=60.0, current_champion_rmse=53.0)
 
-    assert decision.promote is True
+    assert decision.promote is False
+    assert decision.gate_passed is True
+    assert "not better" in decision.reason
 
 
 def test_worse_candidate_does_not_replace_champion():

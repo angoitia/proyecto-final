@@ -69,6 +69,7 @@ class Settings:
     champion_alias: str = field(default_factory=lambda: os.getenv("CHAMPION_ALIAS", "champion"))
     rmse_threshold: float = field(default_factory=lambda: _env_float("RMSE_THRESHOLD", 60.0))
     test_size: float = field(default_factory=lambda: _env_float("TEST_SIZE", 0.2))
+    validation_size: float = field(default_factory=lambda: _env_float("VALIDATION_SIZE", 0.25))
     random_state: int = field(default_factory=lambda: int(os.getenv("RANDOM_STATE", "42")))
     target_column: str = TARGET_COLUMN
     feature_columns: tuple[str, ...] = FEATURE_COLUMNS
@@ -94,6 +95,10 @@ class Settings:
     @property
     def test_data_path(self) -> Path:
         return self.data_processed_dir / "test.csv"
+
+    @property
+    def validation_data_path(self) -> Path:
+        return self.data_processed_dir / "validation.csv"
 
     @property
     def extraction_report_path(self) -> Path:

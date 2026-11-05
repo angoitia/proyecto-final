@@ -171,15 +171,19 @@ El conjunto de datos de scikit-learn ya está limpio, por lo que la primera ejec
 informa de cero cambios. La lógica se ejercita mediante pruebas unitarias con
 valores faltantes, duplicados y variables objetivo no válidas inyectados.
 
-### 4.4 División train/test
+### 4.4 División entrenamiento / validación / test
 
-`mlops/data/split.py` utiliza una división 80/20 con `random_state=42`:
+`mlops/data/split.py` divide el dataset limpio en:
 
-- 353 filas de entrenamiento;
-- 89 filas de test.
+- **entrenamiento**: 353 filas → se subdivide en ajuste de entrenamiento (264 filas) y validación (89 filas);
+- **validación**: 89 filas — reservada para la selección del mejor candidato y para el quality gate;
+- **test**: 89 filas — reservado para la evaluación final e independiente del campeón.
 
-La división se guarda en `data/processed/train.csv` y `data/processed/test.csv`.
-Los informes se almacenan en `artifacts/reports/`.
+La división se realiza con una partición determinista (`random_state=42`, 80/20) y, a
+partir del conjunto de entrenamiento, un `val_size=0.25` para la validación.
+
+La división se guarda en `data/processed/train.csv`, `data/processed/validation.csv`
+y `data/processed/test.csv`. Los informes se almacenan en `artifacts/reports/`.
 
 ---
 
@@ -188,9 +192,10 @@ Los informes se almacenan en `artifacts/reports/`.
 ### 5.1 Candidatos
 
 Los candidatos de producción reproducen la línea base del notebook y se envuelven en
-objetos `Pipeline` de scikit-learn (escalador + estimador), de modo que el
-preprocesamiento exacto utilizado durante el entrenamiento forma parte del modelo
-que se registra:
+objetos `Pipeline` de scikit-learn (imputador de mediana + escalador + estimador), de
+modo que el preprocesamiento exacto utilizado durante el entrenamiento forma parte del
+modelo que se registra: el imputador se ajusta sobre el train y se aplica a
+validación/prueba automáticamente.
 
 | Candidato | Definición |
 |---|---|
@@ -202,24 +207,28 @@ que se registra:
 
 Para cada candidato, la etapa de entrenamiento registra:
 
-- **RMSE**, **MAE** y **R²** de entrenamiento y de test;
+- **RMSE**, **MAE** y **R²** de entrenamiento, validación y test;
 - nombre del candidato, hiperparámetros, recuentos de filas y número de características;
 - el modelo serializado con una firma de MLflow y un ejemplo de entrada;
 - `metrics.json`;
 - `feature_importance.csv` (candidatos de árboles) o coeficientes (candidato lineal);
 - el SHA del commit de git cuando esté disponible.
 
-Resultado actual en la división de test determinista:
+La selección del mejor candidato se realiza con el **RMSE estimado por validación
+cruzada** (5 folds sobre el conjunto de entrenamiento); la evaluación final del
+campeón se hace sobre el **test** determinista.
 
-| Modelo | RMSE en test | MAE en test | R² en test |
-|---|---:|---:|---:|
-| **GradientBoosting (campeón)** | **53.73** | **44.52** | **0.455** |
-| LinearRegression | 53.85 | 42.79 | 0.453 |
-| RandomForest | 54.40 | 44.17 | 0.441 |
+Resultado actual:
 
-La comparación con la línea base del notebook coincide estrechamente con estos
-valores; el notebook también explora características de interacción, que no se
-utilizan en el contrato de servicio.
+| Modelo | RMSE CV | RMSE test | MAE test | R² test |
+|---|---:|---:|---:|---:|
+| **LinearRegression (campeón)** | **57.02** | **54.16** | **42.92** | **0.446** |
+| RandomForest | 62.09 | 55.14 | 44.57 | 0.426 |
+| GradientBoosting | 62.03 | 54.78 | 44.49 | 0.434 |
+
+La comparación con la línea base del notebook es coherente; el notebook también
+explora características de interacción, que no se utilizan en el contrato de
+servicio.
 
 ### 5.3 Experimento de MLflow
 
@@ -252,25 +261,36 @@ alias es `champion`.
 
 Un candidato se promueve solo cuando se cumplen **ambas** condiciones:
 
-1. **Criterio de calidad:** RMSE de test ≤ `RMSE_THRESHOLD` (por defecto, **60.0**).
+1. **Criterio de calidad:** RMSE estimado por validación cruzada ≤ `RMSE_THRESHOLD`
+   (por defecto, **60.0**).
 2. **Comparación con el modelo campeón:** no hay un modelo campeón actual, o el RMSE
-   del candidato es mejor o igual que el RMSE del modelo campeón actual.
+   (CV) del candidato es mejor que el del modelo campeón actual. Ante empate, se
+   conserva al campeón actual.
+
+La decisión de promoción se basa en la métrica de validación cruzada (RMSE CV); la
+evaluación final del campeón (RMSE de test, MAE y R²) se registra para reporte. Si el
+candidato no supera el criterio y no hay un modelo campeón anterior, la etapa `register`
+lanza un error y el proceso termina con un código distinto de cero, por lo que CI falla.
+Si un candidato supera el criterio pero es peor que el modelo campeón actual, se
+mantiene el modelo campeón actual y el pipeline finaliza correctamente.
 
 ¿Por qué 60.0?
 
 - La desviación estándar de la variable objetivo en test es de aproximadamente 73.2.
 - Una línea base de media constante tiene un RMSE de test ≈ 73.2.
-- El criterio de calidad (60.0) exige aproximadamente una mejora del 18 % sobre esa línea base.
-- El modelo campeón actual alcanza 53.73, aproximadamente una mejora del 27 %.
+- El criterio de calidad (60.0) exige aproximadamente una mejora del 18 % sobre esa línea base;
+  el campeón supera ampliamente ese umbral con un RMSE estimado en validación cruzada de ≈ 57.
+- El modelo campeón (LinearRegression) alcanza **57.02** en validación cruzada y
+  **54.16** en test, con RMSE inferior a la línea base de media constante (≈ 73.2).
 
 Se trata deliberadamente de un criterio simple y explicable, no de un umbral
-sobreajustado al conjunto de test.
+sobreajustado al conjunto de validación.
 
-Cada versión registrada se etiqueta con `test_rmse`, `test_mae`, `test_r2`,
-`training_run_id`, `quality_gate_threshold`, `quality_gate`, `promotion_status`,
-`candidate_model` y el SHA de git. La decisión completa (incluido el modelo campeón
-anterior y el motivo) se escribe en `artifacts/reports/champion_selection.json` y se
-registra como una ejecución independiente de MLflow.
+Cada versión registrada se etiqueta con `validation_rmse`, `test_rmse`, `test_mae`,
+`test_r2`, `training_run_id`, `quality_gate_threshold`, `quality_gate`,
+`promotion_status`, `candidate_model` y el SHA de git. La decisión completa (incluido el
+modelo campeón anterior y el motivo) se escribe en `artifacts/reports/champion_selection.json`
+y se registra como una ejecución independiente de MLflow.
 
 Si el candidato no supera el criterio y no hay un modelo campeón anterior, la etapa
 `register` lanza un error y el proceso termina con un código distinto de cero, por
@@ -461,20 +481,20 @@ Ejecución predeterminada:
 
 ```bash
 pytest -q
-# 25 passed, 1 skipped (integración excluida)
+# 29 passed, 1 skipped (integración excluida)
 ```
 
 Ejecución de extremo a extremo después del pipeline:
 
 ```bash
 RUN_INTEGRATION=1 pytest -q
-# 26 passed
+# 30 passed
 ```
 
 La prueba de integración lee una fila real de `data/processed/test.csv`, solicita
-una predicción al modelo campeón real y comprueba que la versión del modelo, el alias
-y las métricas sean coherentes. CI establece `RUN_INTEGRATION=1` después del
-entrenamiento/registro.
+una predicción al modelo campeón real y comprueba que la versión del modelo, el alias,
+las métricas (CV) y el criterio de calidad sean coherentes. CI establece `RUN_INTEGRATION=1`
+después del entrenamiento/registro.
 
 ---
 
@@ -521,8 +541,9 @@ entorno los sobrescriben:
 | `MLFLOW_EXPERIMENT` | `diabetes-progression` | Nombre del experimento |
 | `MODEL_NAME` | `diabetes-progression-model` | Nombre del modelo registrado |
 | `CHAMPION_ALIAS` | `champion` | Alias asignado al modelo seleccionado |
-| `RMSE_THRESHOLD` | `60.0` | Criterio de calidad para la promoción del modelo campeón |
-| `TEST_SIZE` | `0.2` | Fracción de la división de test |
+| `RMSE_THRESHOLD` | `60.0` | Criterio de calidad para la promoción del modelo campeón (RMSE de validación) |
+| `TEST_SIZE` | `0.2` | Fracción del dataset reservada para el test final |
+| `VALIDATION_SIZE` | `0.25` | Fracción del conjunto de entrenamiento reservada para validación |
 | `RANDOM_STATE` | `42` | Aleatoriedad de la división y de los modelos |
 | `DATA_RAW_DIR` | `<repo>/data/raw` | Directorio de datos sin procesar |
 | `DATA_PROCESSED_DIR` | `<repo>/data/processed` | Directorio de datos limpios/divisiones |
@@ -569,10 +590,10 @@ una fuente externa.
 
 ### Limitaciones actuales (alcance intencionado)
 
-- La imputación por mediana se calcula sobre el conjunto de datos limpio completo
-  antes de la división. El conjunto de datos de diabetes no tiene valores faltantes,
-  así que aquí no hay una fuga de datos práctica. Un diseño de producción más
-  estricto ajustaría el imputador solo en la división de entrenamiento.
+- La imputación por mediana se realiza dentro del pipeline de entrenamiento
+  (`SimpleImputer` dentro del `Pipeline`), calculada **solo sobre los datos de
+  entrenamiento** y aplicada automáticamente a validación y prueba. La limpieza
+  se encarga de la lógica estructural (tipos, valores inválidos, duplicados).
 - SQLite admite un único escritor y está pensado para uso local/CI. Usa un backend
   de MLflow remoto para equipos con concurrencia.
 - No hay autenticación, limitación de tasa, monitorización de deriva ni programación

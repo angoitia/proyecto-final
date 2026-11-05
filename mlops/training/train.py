@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from mlflow.models import infer_signature
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import KFold, cross_val_predict
 
 from mlops.config import Settings, get_settings
 from mlops.training.mlflow_utils import configure_mlflow
@@ -35,6 +36,15 @@ def regression_metrics(y_true: pd.Series, predictions: np.ndarray) -> dict[str, 
         "mae": float(mean_absolute_error(y_true, predictions)),
         "r2": float(r2_score(y_true, predictions)),
     }
+
+
+def _cross_validation_metrics(
+    estimator: Any, X: pd.DataFrame, y: pd.Series, random_state: int
+) -> dict[str, float]:
+    """Estima la generalización del candidato con validación cruzada (5 folds)."""
+    cv = KFold(n_splits=5, shuffle=True, random_state=random_state)
+    cv_predictions = cross_val_predict(estimator, X, y, cv=cv)
+    return regression_metrics(y, cv_predictions)
 
 
 def _load_split(path: Path, settings: Settings) -> tuple[pd.DataFrame, pd.Series]:
@@ -80,7 +90,8 @@ def train_models(settings: Settings | None = None) -> dict[str, Any]:
     settings = settings or get_settings()
     settings.ensure_directories()
 
-    X_train, y_train = _load_split(settings.train_data_path, settings)
+    X_train_fit, y_train_fit = _load_split(settings.train_data_path, settings)
+    X_validation, y_validation = _load_split(settings.validation_data_path, settings)
     X_test, y_test = _load_split(settings.test_data_path, settings)
 
     configure_mlflow(settings)
@@ -102,36 +113,42 @@ def train_models(settings: Settings | None = None) -> dict[str, Any]:
             mlflow.log_params(
                 {
                     "candidate": model_name,
-                    "train_rows": len(X_train),
+                    "train_rows": len(X_train_fit),
+                    "validation_rows": len(X_validation),
                     "test_rows": len(X_test),
                     "feature_count": len(settings.feature_columns),
                 }
             )
 
-            estimator.fit(X_train, y_train)
-            train_predictions = estimator.predict(X_train)
+            estimator.fit(X_train_fit, y_train_fit)
+            train_predictions = estimator.predict(X_train_fit)
+            validation_predictions = estimator.predict(X_validation)
             test_predictions = estimator.predict(X_test)
 
-            train_metrics = regression_metrics(y_train, train_predictions)
+            train_metrics = regression_metrics(y_train_fit, train_predictions)
+            validation_metrics = regression_metrics(y_validation, validation_predictions)
             test_metrics = regression_metrics(y_test, test_predictions)
+            cv_metrics = _cross_validation_metrics(estimator, X_train_fit, y_train_fit, settings.random_state)
             mlflow.log_metrics({f"train_{key}": value for key, value in train_metrics.items()})
+            mlflow.log_metrics({f"validation_{key}": value for key, value in cv_metrics.items()})
             mlflow.log_metrics({f"test_{key}": value for key, value in test_metrics.items()})
 
-            signature = infer_signature(X_train, train_predictions)
+            signature = infer_signature(X_train_fit, train_predictions)
             log_model_kwargs: dict[str, Any] = {
                 "sk_model": estimator,
                 "name": "model",
                 "signature": signature,
-                "input_example": X_train.head(3),
+                "input_example": X_train_fit.head(3),
             }
             if "skops_trusted_types" in inspect.signature(mlflow.sklearn.log_model).parameters:
                 # MLflow >= 3 serializa los modelos de scikit-learn con skops por
                 # defecto. Los candidatos basados en árboles contienen este tipo
-                # generado internamente; el artefacto lo produce nuestro propio pipeline.
-                log_model_kwargs["skops_trusted_types"] = ["sklearn.tree._tree.Tree"]
+                # generado internamente; el imputador puede introducir tipos de
+                # numpy. El artefacto lo produce nuestro propio pipeline.
+                log_model_kwargs["skops_trusted_types"] = ["sklearn.tree._tree.Tree", "numpy.dtype"]
             model_info = mlflow.sklearn.log_model(**log_model_kwargs)
             mlflow.log_dict(
-                {"train": train_metrics, "test": test_metrics},
+                {"train": train_metrics, "validation": validation_metrics, "test": test_metrics},
                 "metrics.json",
             )
 
@@ -141,10 +158,10 @@ def train_models(settings: Settings | None = None) -> dict[str, Any]:
 
             run_id = run.info.run_id
             logger.info(
-                "Candidate %s finished (run_id=%s, test RMSE=%.4f)",
+                "Candidate %s finished (run_id=%s, cv RMSE=%.4f)",
                 model_name,
                 run_id,
-                test_metrics["rmse"],
+                cv_metrics["rmse"],
             )
 
         candidates.append(
@@ -153,29 +170,34 @@ def train_models(settings: Settings | None = None) -> dict[str, Any]:
                 "run_id": run_id,
                 "model_uri": model_info.model_uri,
                 "train_metrics": train_metrics,
+                "validation_metrics": validation_metrics,
+                "cv_metrics": cv_metrics,
                 "test_metrics": test_metrics,
             }
         )
 
-    best = min(candidates, key=lambda candidate: candidate["test_metrics"]["rmse"])
+    best = min(candidates, key=lambda candidate: candidate["cv_metrics"]["rmse"])
     summary: dict[str, Any] = {
         "generated_at": utc_now(),
         "experiment_name": settings.experiment_name,
         "registered_model_name": settings.registered_model_name,
         "champion_alias": settings.champion_alias,
-        "selection_metric": "test_rmse",
+        "selection_metric": "cv_rmse",
         "rmse_threshold": settings.rmse_threshold,
         "random_state": settings.random_state,
         "test_size": settings.test_size,
-        "train_rows": int(len(X_train)),
+        "validation_size": settings.validation_size,
+        "train_rows": int(len(X_train_fit)),
+        "validation_rows": int(len(X_validation)),
         "test_rows": int(len(X_test)),
         "candidates": candidates,
         "best": best,
     }
     write_json(settings.training_summary_path, summary)
     logger.info(
-        "Best candidate: %s (test RMSE=%.4f, run_id=%s)",
+        "Best candidate: %s (cv RMSE=%.4f, final test RMSE=%.4f, run_id=%s)",
         best["model_name"],
+        best["cv_metrics"]["rmse"],
         best["test_metrics"]["rmse"],
         best["run_id"],
     )

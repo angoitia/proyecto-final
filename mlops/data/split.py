@@ -46,6 +46,45 @@ def split_data(
     return train, test
 
 
+def split_train_validation(
+    train: pd.DataFrame,
+    val_size: float,
+    random_state: int,
+    feature_columns: tuple[str, ...] = FEATURE_COLUMNS,
+    target_column: str = TARGET_COLUMN,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Divide el conjunto de entrenamiento en un conjunto de ajuste y uno de validación.
+
+    El modelo se selecciona (y se decide la promoción al alias ``champion``) con
+    el RMSE de validación; el conjunto de prueba se reserva exclusivamente para
+    la evaluación final e independiente del modelo campeón.
+    """
+    columns = list(feature_columns) + [target_column]
+    missing_columns = [column for column in columns if column not in train.columns]
+    if missing_columns:
+        raise ValueError(f"Cannot split training data; missing columns: {missing_columns}")
+    if not 0 < val_size < 1:
+        raise ValueError(f"val_size must be between 0 and 1, got {val_size}")
+
+    train_fit, validation = train_test_split(
+        train.loc[:, columns],
+        test_size=val_size,
+        random_state=random_state,
+        shuffle=True,
+    )
+    train_fit = train_fit.reset_index(drop=True)
+    validation = validation.reset_index(drop=True)
+
+    logger.info(
+        "Split training set with val_size=%s, random_state=%s: train_fit=%s rows, validation=%s rows",
+        val_size,
+        random_state,
+        len(train_fit),
+        len(validation),
+    )
+    return train_fit, validation
+
+
 def build_split_report(
     train: pd.DataFrame,
     test: pd.DataFrame,

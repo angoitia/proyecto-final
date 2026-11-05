@@ -26,6 +26,9 @@ jobs:
       MODEL_NAME: diabetes-progression-model
       CHAMPION_ALIAS: champion
       RMSE_THRESHOLD: "60.0"
+      TEST_SIZE: "0.2"
+      VALIDATION_SIZE: "0.25"
+      RANDOM_STATE: "42"
       RUN_INTEGRATION: "1"
 
     steps:

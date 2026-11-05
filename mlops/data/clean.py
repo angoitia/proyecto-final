@@ -33,8 +33,11 @@ def clean_data(
     - Eliminar las filas sin un objetivo utilizable (finito y estrictamente
       positivo).
     - Eliminar las filas duplicadas exactas.
-    - Imputar los valores faltantes de las características con la mediana de
-      la columna.
+
+    Los valores faltantes de las características **no se imputan aquí**: la
+    imputación con la mediana se realiza dentro del pipeline de entrenamiento,
+    calculando la estadística **solo sobre los datos de entrenamiento**. Así se
+    evita filtrar información del conjunto de validación/prueba al modelo.
     """
     required_columns = list(feature_columns) + [target_column]
     missing_columns = [column for column in required_columns if column not in dataframe.columns]
@@ -59,15 +62,20 @@ def clean_data(
     duplicates = int(cleaned.duplicated().sum())
     cleaned = cleaned.drop_duplicates()
 
-    imputed_by_column = {column: int(cleaned[column].isna().sum()) for column in feature_columns}
-    medians = cleaned[list(feature_columns)].median(numeric_only=True)
-    all_missing = [column for column in feature_columns if pd.isna(medians[column])]
+    missing_by_column: dict[str, int] = {
+        str(column): int(cleaned[column].isna().sum())
+        for column in feature_columns
+        if column in cleaned.columns and int(cleaned[column].isna().sum()) > 0
+    }
+
+    all_missing = [
+        column
+        for column in feature_columns
+        if column in cleaned.columns and bool(cleaned[column].isna().all())
+    ]
     if all_missing:
         raise ValueError(f"Cannot impute features that are entirely missing: {all_missing}")
 
-    cleaned[list(feature_columns)] = cleaned[list(feature_columns)].fillna(medians)
-    cleaned[list(feature_columns)] = cleaned[list(feature_columns)].astype(float)
-    cleaned[target_column] = cleaned[target_column].astype(float)
     cleaned = cleaned.reset_index(drop=True)
 
     report: dict[str, Any] = {
@@ -79,16 +87,14 @@ def clean_data(
         "removed_missing_target": missing_targets,
         "removed_invalid_target": invalid_targets,
         "duplicates_removed": duplicates,
-        "imputed_values": int(sum(imputed_by_column.values())),
-        "imputed_by_column": imputed_by_column,
-        "imputation_medians": {column: float(value) for column, value in medians.items()},
+        "missing_values_by_column": missing_by_column,
     }
 
     logger.info(
-        "Cleaning finished: %s -> %s rows (%s duplicates, %s imputed values)",
+        "Cleaning finished: %s -> %s rows (%s duplicates, %s missing feature values)",
         rows_in,
         len(cleaned),
         duplicates,
-        report["imputed_values"],
+        sum(report["missing_values_by_column"].values()),
     )
     return cleaned, report

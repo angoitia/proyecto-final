@@ -2,10 +2,12 @@
 
 Un candidato se promueve al alias ``champion`` solo cuando:
 
-1. su RMSE de prueba pasa el quality gate (``RMSE_THRESHOLD``), y
-2. no hay un campeón actual o su RMSE es mejor o igual al RMSE del campeón
-   actual.
+1. su métrica de evaluación (RMSE estimado con validación cruzada sobre el
+   entrenamiento) pasa el quality gate (``RMSE_THRESHOLD``), y
+2. no hay un campeón actual o su métrica es mejor que la del candidato.
 
+El desempate a favor del campeón actual en caso de igualdad de RMSE se mantiene
+como política: solo se reemplaza al campeón si el candidato es estrictamente mejor.
 La decisión se guarda tanto en MLflow como en un informe JSON local.
 """
 
@@ -45,7 +47,7 @@ def decide_promotion(
             promote=False,
             gate_passed=False,
             reason=(
-                f"Quality gate failed: test RMSE {new_rmse:.4f} is above "
+                f"Quality gate failed: candidate RMSE {new_rmse:.4f} is above "
                 f"the threshold {threshold:.4f}."
             ),
         )
@@ -55,36 +57,36 @@ def decide_promotion(
             gate_passed=True,
             reason="No current champion; candidate passed the quality gate and was promoted.",
         )
-    if new_rmse <= current_champion_rmse:
+    if new_rmse < current_champion_rmse:
         return PromotionDecision(
             promote=True,
             gate_passed=True,
             reason=(
-                f"Candidate test RMSE {new_rmse:.4f} is better than or equal to the "
-                f"current champion's {current_champion_rmse:.4f}."
+                f"Candidate RMSE {new_rmse:.4f} is strictly better than the current "
+                f"champion's {current_champion_rmse:.4f}."
             ),
         )
     return PromotionDecision(
         promote=False,
         gate_passed=True,
         reason=(
-            f"Candidate test RMSE {new_rmse:.4f} is worse than the current "
+            f"Candidate RMSE {new_rmse:.4f} is not better than the current "
             f"champion's {current_champion_rmse:.4f}; the current champion is kept."
         ),
     )
 
 
 def _version_rmse(client: MlflowClient, version: Any) -> float | None:
-    """Lee el RMSE de prueba de la corrida, con fallback a la etiqueta de la versión del modelo."""
+    """Lee el RMSE de validación de la corrida, con fallback a la etiqueta de la versión del modelo."""
     try:
         run = client.get_run(version.run_id)
-        value = run.data.metrics.get("test_rmse")
+        value = run.data.metrics.get("validation_rmse")
         if value is not None:
             return float(value)
     except MlflowException:
         logger.warning("Could not read run %s for champion version %s", version.run_id, version.version)
 
-    tag_value = (version.tags or {}).get("test_rmse")
+    tag_value = (version.tags or {}).get("validation_rmse")
     return float(tag_value) if tag_value is not None else None
 
 
@@ -99,7 +101,7 @@ def _get_current_champion(
     return {
         "version": str(version.version),
         "run_id": version.run_id,
-        "test_rmse": _version_rmse(client, version),
+        "validation_rmse": _version_rmse(client, version),
     }
 
 
@@ -131,8 +133,12 @@ def register_and_select(
         summary = read_json(summary_path)
 
     best = summary["best"]
-    best_metrics = best["test_metrics"]
+    best_metrics = best["cv_metrics"]
     new_rmse = float(best_metrics["rmse"])
+    final_test_metrics = best["test_metrics"]
+    final_test_rmse = float(final_test_metrics["rmse"])
+    final_test_mae = float(final_test_metrics["mae"])
+    final_test_r2 = float(final_test_metrics["r2"])
     run_id = best["run_id"]
 
     configure_mlflow(settings)
@@ -144,9 +150,10 @@ def register_and_select(
     selected_at = utc_now()
     commit = git_sha()
     tags = {
-        "test_rmse": f"{new_rmse:.6f}",
-        "test_mae": f"{float(best_metrics['mae']):.6f}",
-        "test_r2": f"{float(best_metrics['r2']):.6f}",
+        "validation_rmse": f"{new_rmse:.6f}",
+        "test_rmse": f"{final_test_rmse:.6f}",
+        "test_mae": f"{final_test_mae:.6f}",
+        "test_r2": f"{final_test_r2:.6f}",
         "training_run_id": run_id,
         "quality_gate_threshold": f"{settings.rmse_threshold:.6f}",
         "selected_at": selected_at,
@@ -169,7 +176,7 @@ def register_and_select(
     current_champion = _get_current_champion(
         client, settings.registered_model_name, settings.champion_alias
     )
-    current_rmse = current_champion["test_rmse"] if current_champion else None
+    current_rmse = current_champion["validation_rmse"] if current_champion else None
     decision = decide_promotion(new_rmse, settings.rmse_threshold, current_rmse)
 
     if decision.promote:
@@ -179,7 +186,7 @@ def register_and_select(
             version=str(model_version.version),
         )
         logger.info(
-            "Promoted version %s to alias '%s' (test RMSE=%.4f)",
+            "Promoted version %s to alias '%s' (cv RMSE=%.4f)",
             model_version.version,
             settings.champion_alias,
             new_rmse,
@@ -207,7 +214,8 @@ def register_and_select(
         final_champion = {
             "version": str(model_version.version),
             "run_id": run_id,
-            "test_rmse": new_rmse,
+            "validation_rmse": new_rmse,
+            "test_rmse": final_test_rmse,
             "source": "promoted_this_run",
         }
     else:
@@ -225,7 +233,12 @@ def register_and_select(
             "model_name": best["model_name"],
             "run_id": run_id,
             "version": str(model_version.version),
-            "metrics": {"test_rmse": new_rmse, **{k: float(v) for k, v in best_metrics.items()}},
+            "metrics": {
+                "cv_rmse": new_rmse,
+                "test_rmse": final_test_rmse,
+                "cv_mae": float(best_metrics["mae"]),
+                "cv_r2": float(best_metrics["r2"]),
+            },
         },
         "current_champion": current_champion,
         "gate_passed": decision.gate_passed,
@@ -254,7 +267,7 @@ def register_and_select(
         )
         mlflow.log_metrics(
             {
-                "candidate_test_rmse": new_rmse,
+                "candidate_validation_rmse": new_rmse,
                 "threshold": settings.rmse_threshold,
                 "promoted": int(decision.promote),
             }

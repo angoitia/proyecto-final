@@ -21,7 +21,7 @@ import pandas as pd
 from mlops.config import Settings, get_settings
 from mlops.data.clean import clean_data
 from mlops.data.extract import extract_data
-from mlops.data.split import build_split_report, split_data
+from mlops.data.split import build_split_report, split_data, split_train_validation
 from mlops.data.validate import DataValidationError, validate_data
 from mlops.training.registry import register_and_select
 from mlops.training.train import train_models
@@ -94,11 +94,17 @@ def run_split(settings: Settings) -> dict[str, Any]:
         )
     dataframe = pd.read_csv(settings.clean_data_path)
     train, test = split_data(dataframe, settings.test_size, settings.random_state)
-    train.to_csv(settings.train_data_path, index=False)
+    train_fit, validation = split_train_validation(
+        train,
+        val_size=settings.validation_size,
+        random_state=settings.random_state,
+    )
+    train_fit.to_csv(settings.train_data_path, index=False)
+    validation.to_csv(settings.validation_data_path, index=False)
     test.to_csv(settings.test_data_path, index=False)
-    report = build_split_report(train, test, settings.test_size, settings.random_state)
-    report["train_path"] = str(settings.train_data_path)
-    report["test_path"] = str(settings.test_data_path)
+    report = build_split_report(train_fit, test, settings.test_size, settings.random_state)
+    report["validation_path"] = str(settings.validation_data_path)
+    report["validation_rows"] = int(len(validation))
     write_json(settings.split_report_path, report)
     return report
 

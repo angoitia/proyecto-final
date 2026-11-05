@@ -43,7 +43,7 @@ def test_real_champion_is_loaded_and_predicts():
         assert model_info.status_code == 200
         info = model_info.json()
         assert info["champion_alias"] == settings.champion_alias
-        assert info["metrics"]["test_rmse"] <= settings.rmse_threshold
+        assert info["quality_gate"] == "passed"
 
         prediction = client.post("/predict", json=payload)
         assert prediction.status_code == 200

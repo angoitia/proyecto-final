@@ -10,7 +10,7 @@ from sklearn.datasets import load_diabetes
 from mlops.config import FEATURE_COLUMNS, TARGET_COLUMN
 from mlops.data.clean import clean_data
 from mlops.data.extract import extract_data
-from mlops.data.split import split_data
+from mlops.data.split import split_data, split_train_validation
 from mlops.data.validate import DataValidationError, validate_data
 
 
@@ -78,9 +78,11 @@ def test_cleaning_handles_duplicates_missing_values_and_invalid_targets(raw_data
     assert report["rows_out"] == 19
     assert report["duplicates_removed"] == 1
     assert report["removed_invalid_target"] == 1
-    assert report["imputed_values"] >= 2
-    assert not cleaned[list(FEATURE_COLUMNS)].isna().any().any()
-    assert np.isfinite(cleaned[list(FEATURE_COLUMNS)].to_numpy()).all()
+    # La limpieza deja los valores faltantes en las características; la imputación
+    # (mediana calculada sobre el train) se realiza dentro del pipeline de entrenamiento.
+    assert "bmi" in report["missing_values_by_column"]
+    assert cleaned[list(FEATURE_COLUMNS)].isna().any().any()
+    assert not cleaned[TARGET_COLUMN].isna().any()
     assert (cleaned[TARGET_COLUMN] > 0).all()
 
 
@@ -108,3 +110,25 @@ def test_split_is_deterministic(raw_dataframe):
 def test_split_rejects_missing_column(raw_dataframe):
     with pytest.raises(ValueError, match="missing required columns"):
         split_data(raw_dataframe.drop(columns=["age"]), test_size=0.2, random_state=42)
+
+
+def test_split_train_validation_is_deterministic(raw_dataframe):
+    train_a, test_a = split_data(raw_dataframe, test_size=0.2, random_state=42)
+
+    train_fit_a, validation_a = split_train_validation(train_a, val_size=0.25, random_state=42)
+    train_fit_b, validation_b = split_train_validation(train_a, val_size=0.25, random_state=42)
+
+    assert train_fit_a.equals(train_fit_b)
+    assert validation_a.equals(validation_b)
+    assert len(train_fit_a) + len(validation_a) == len(train_a)
+    assert len(train_fit_a) > 0
+    assert len(validation_a) > 0
+    assert train_fit_a[TARGET_COLUMN].notna().all()
+    assert validation_a[TARGET_COLUMN].notna().all()
+
+
+def test_split_train_validation_rejects_invalid_size(raw_dataframe):
+    train, _ = split_data(raw_dataframe, test_size=0.2, random_state=42)
+
+    with pytest.raises(ValueError, match="val_size must be between 0 and 1"):
+        split_train_validation(train, val_size=1.5, random_state=42)
