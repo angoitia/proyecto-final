@@ -390,6 +390,37 @@ curl -X POST http://127.0.0.1:8000/predict \
 }
 ```
 
+### 7.3 Ejemplo con datos reales de un paciente
+
+A continuación se muestra un ejemplo de uso de `POST /predict` con los valores
+reales de las características de un paciente del dataset (primera fila del
+conjunto de test, con progresión observada de 219) y su respuesta esperada:
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "age": 0.0453409833354618,
+    "sex": -0.0446416365069891,
+    "bmi": -0.006205954135807,
+    "bp": -0.0159989752203051,
+    "s1": 0.1250187031342918,
+    "s2": 0.1251981011367534,
+    "s3": 0.019186997017453,
+    "s4": 0.0343088588777267,
+    "s5": 0.032432324156551,
+    "s6": -0.0052198044153004
+  }'
+
+# Respuesta esperada (HTTP 200):
+# {
+#   "prediction": 131.15354243299302,
+#   "model_name": "diabetes-progression-model",
+#   "model_version": "1",
+#   "champion_alias": "champion"
+# }
+```
+
 La predicción depende del modelo campeón actual; el número de versión aumenta cada
 vez que el pipeline registra una nueva versión del modelo.
 
