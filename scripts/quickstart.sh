@@ -6,7 +6,11 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-source .venv/bin/activate
+if [ -n "${FISH_VERSION:-}" ]; then
+    source .venv/bin/activate.fish
+elif [ -n "${BASH_VERSION:-}" ]; then
+    source .venv/bin/activate
+fi
 
 echo "Ejecutando pipeline MLOps (extract -> validate -> clean -> split -> train -> register) ..."
 python -m mlops.pipeline

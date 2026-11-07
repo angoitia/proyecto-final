@@ -11,7 +11,11 @@ if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
-source .venv/bin/activate
+if [ -n "${FISH_VERSION:-}" ]; then
+    source .venv/bin/activate.fish
+elif [ -n "${BASH_VERSION:-}" ]; then
+    source .venv/bin/activate
+fi
 
 echo "Actualizando pip ..."
 python -m pip install --upgrade pip
